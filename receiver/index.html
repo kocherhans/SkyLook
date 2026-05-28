@@ -138,6 +138,10 @@
     width: clamp(40px, 4vw, 56px); aspect-ratio: 1/1; border-radius: 12px;
     background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;
     font-size: clamp(14px, 1.4vw, 18px); font-weight: 700; color: rgba(255,255,255,.7); flex-shrink: 0;
+    overflow: hidden;
+  }
+  .airline-logo img {
+    width: 70%; height: 70%; object-fit: contain;
   }
   .detail-callsign {
     font-size: clamp(20px, 2vw, 28px); font-weight: 700; color: #fff;
@@ -296,13 +300,23 @@ const urlParams = new URLSearchParams(window.location.search);
 const NORTH_OFFSET = (parseFloat(urlParams.get('north')) || 0) % 360;
 const URL_LOCK     = urlParams.get('lock');   // optional callsign or hex id
 
-// Apply north offset to a bearing — the result is what appears on screen
+// Apply north offset to a bearing — the result is what appears on screen.
+// Cast-message value wins over URL param, which wins over 0.
+function effectiveNorth() {
+  return (typeof state.displayNorthOffset === 'number' && state.displayNorthOffset !== 0)
+    ? state.displayNorthOffset
+    : NORTH_OFFSET;
+}
 function applyNorth(bearing) {
-  return ((bearing - NORTH_OFFSET) % 360 + 360) % 360;
+  return ((bearing - effectiveNorth()) % 360 + 360) % 360;
 }
 
 // ── State ────────────────────────────────────────────────────────
-let state = { flights: [], trackedIds: [], focusedFlightId: null, lockedFlightId: URL_LOCK, unitSystem: 'METRIC', lastUpdated: null };
+let state = {
+  flights: [], trackedIds: [], focusedFlightId: null,
+  lockedFlightId: URL_LOCK, displayNorthOffset: 0,
+  unitSystem: 'METRIC', lastUpdated: null
+};
 
 function updateState(s) {
   // Merge so partial updates don't wipe other fields
@@ -781,7 +795,7 @@ function renderDetail() {
   const isLocked = state.lockedFlightId === f.id;
   detail.innerHTML = `
     <div class="detail-header">
-      <div class="airline-logo">${esc(f.airlineIataCode || f.callsign.slice(0,2))}</div>
+      <div class="airline-logo">${airlineLogoHTML(f)}</div>
       <div style="min-width:0; flex:1;">
         <div>
           <span class="detail-callsign">${esc(f.callsign)}</span>
@@ -808,6 +822,18 @@ function renderDetail() {
 
 function statRow(label, value) {
   return `<div class="stat-row"><span class="stat-lbl">${esc(label)}</span><span class="stat-val">${esc(value)}</span></div>`;
+}
+
+// Airline logo with letter-fallback. Same CDN as the phone app.
+function airlineLogoHTML(f) {
+  if (f.airlineIataCode) {
+    const url = `https://images.kiwi.com/airlines/64/${esc(f.airlineIataCode)}.png`;
+    const fallback = esc((f.airline || f.callsign).charAt(0).toUpperCase());
+    // onerror swap to the letter avatar if the logo 404s
+    return `<img src="${url}" alt="${esc(f.airline)}"
+      onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${fallback}'}))">`;
+  }
+  return esc((f.airline || f.callsign).charAt(0).toUpperCase());
 }
 
 function esc(s) {
