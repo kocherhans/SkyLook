@@ -264,7 +264,7 @@
     padding: 6px 12px; border-radius: 8px; flex-shrink: 0;
   }
 
-  /* Route card */
+  /* Route card — hero variant makes it the focal point for commercial flights */
   .lock-route {
     display: flex; align-items: center; gap: clamp(16px, 2.5vw, 32px);
     padding: clamp(16px, 2.5vh, 28px) clamp(20px, 3vw, 32px);
@@ -272,17 +272,27 @@
     border-radius: 18px;
     margin-bottom: clamp(16px, 2.5vh, 28px);
   }
+  .lock-route.hero {
+    padding: clamp(22px, 4vh, 40px) clamp(24px, 3.5vw, 44px);
+    background: rgba(91,179,255,0.06);
+    border: 1px solid rgba(91,179,255,0.16);
+  }
   .lock-airport { min-width: 0; }
   .lock-airport.right { text-align: right; }
   .lock-iata {
     font-size: clamp(24px, 3.5vw, 44px); font-weight: 800;
     color: #fff; letter-spacing: -1px; line-height: 1;
   }
+  .lock-route.hero .lock-iata { font-size: clamp(40px, 5.5vw, 72px); }
   .lock-city {
     font-size: clamp(11px, 1.1vw, 15px); color: rgba(255,255,255,0.55);
     margin-top: 4px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  .lock-route.hero .lock-city { font-size: clamp(15px, 1.6vw, 22px); margin-top: 6px; }
+  .lock-route.hero .lock-route-meta { font-size: clamp(13px, 1.3vw, 16px); margin-top: 14px; }
+  .lock-route.hero .lock-route-track { height: 5px; }
+  .lock-route.hero .lock-route-plane { font-size: clamp(20px, 2vw, 28px); }
   .lock-route-mid { flex: 1; min-width: 0; }
   .lock-route-track {
     position: relative; height: 4px; background: rgba(255,255,255,0.1);
@@ -348,7 +358,7 @@
     font-size: clamp(13px, 1.3vw, 17px); font-weight: 700; color: #fff;
   }
 
-  /* Where-to-look hero — large enough to read from across a room */
+  /* Where-to-look — hero by default (no route), compact when route is hero */
   .lock-look {
     margin-top: auto;
     padding: clamp(18px, 3vh, 30px) clamp(22px, 3vw, 36px);
@@ -357,6 +367,10 @@
     border-radius: 18px;
     display: flex; align-items: center; gap: 22px;
   }
+  .lock-look.compact {
+    padding: clamp(12px, 1.8vh, 18px) clamp(18px, 2.5vw, 26px);
+    background: rgba(91,179,255,0.08);
+  }
   .lock-look-label {
     font-size: clamp(11px, 1.1vw, 14px); font-weight: 800; letter-spacing: 1.8px;
     color: #5BB3FF; line-height: 1;
@@ -364,6 +378,9 @@
   .lock-look-text {
     font-size: clamp(30px, 5.2vw, 68px); font-weight: 800;
     color: #fff; margin-top: 8px; letter-spacing: -1px; line-height: 1.05;
+  }
+  .lock-look.compact .lock-look-text {
+    font-size: clamp(20px, 2.5vw, 32px); margin-top: 4px;
   }
 
   /* ── Error toast (visible if cast message parsing fails) ─────── */
@@ -733,16 +750,22 @@ function render() {
 }
 
 function renderLockView(f) {
+  // Decide layout based on what data we have and whether the plane is
+  // realistically visible to the user from where they are.
+  const hasRoute = !!(f.fromCode && f.toCode);
+  const visible  = !f.offRadar && f.distanceKm < 50;
+
   // Header
   document.getElementById('lock-logo').innerHTML = airlineLogoHTML(f);
   document.getElementById('lock-callsign').textContent = f.callsign;
   const airlineLine = [f.airline, f.model].filter(Boolean).join(' · ');
   document.getElementById('lock-airline').textContent = airlineLine || '—';
 
-  // Route — only show if we have endpoints
+  // Route card — hero size when present (this becomes the focal point)
   const routeEl = document.getElementById('lock-route');
-  if (f.fromCode && f.toCode) {
+  if (hasRoute) {
     routeEl.style.display = '';
+    routeEl.classList.add('hero');
     document.getElementById('lock-from-iata').textContent = f.fromCode;
     document.getElementById('lock-from-city').textContent = f.fromCity || '';
     document.getElementById('lock-to-iata').textContent = f.toCode;
@@ -758,6 +781,7 @@ function renderLockView(f) {
         : (f.offRadar ? 'OFF RADAR' : '—');
   } else {
     routeEl.style.display = 'none';
+    routeEl.classList.remove('hero');
   }
 
   // Vital signs — the three most important stats at hero size.
@@ -806,9 +830,19 @@ function renderLockView(f) {
     </div>
   `).join('');
 
-  // Where to look — biggest text in the whole view (the actionable bit)
-  document.getElementById('lock-look-text').textContent =
-    humanDirection(f.bearing, f.altitudeFt);
+  // Where to look — only meaningful if the plane is close enough to actually see.
+  // When the route card is hero, demote this to a compact strip; otherwise it
+  // takes the hero slot itself.
+  const lookEl = document.querySelector('.lock-look');
+  if (visible) {
+    lookEl.style.display = '';
+    if (hasRoute) lookEl.classList.add('compact');
+    else          lookEl.classList.remove('compact');
+    document.getElementById('lock-look-text').textContent =
+      humanDirection(f.bearing, f.altitudeFt);
+  } else {
+    lookEl.style.display = 'none';
+  }
 }
 
 function formatDuration(minutes) {
