@@ -221,6 +221,12 @@
     color: #5BB3FF; background: rgba(91,179,255,0.15);
     padding: 3px 7px; border-radius: 5px; margin-left: 8px; vertical-align: middle;
   }
+  /* ── Off-radar badge (tracked plane outside current radar range) ── */
+  .offradar-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.08);
+    padding: 3px 7px; border-radius: 5px; margin-left: 8px; vertical-align: middle;
+  }
 
   /* ── Error toast (visible if cast message parsing fails) ─────── */
   #err {
@@ -571,14 +577,18 @@ function flightRowHTML(f, focusedId) {
   const isFocused = focusedId && f.id === focusedId;
   const isDimmed = focusedId && !isFocused;
   const cls = isFocused ? ' focused' : (isDimmed ? ' dimmed' : '');
+  // Off-radar tracked planes use a hollow dot to differentiate from on-radar
+  const dotStyle = f.offRadar
+    ? `background:transparent;border:1.5px solid ${color}`
+    : `background:${color}`;
   return `
     <div class="flight-row${cls}">
-      <div class="dot" style="background:${color}"></div>
+      <div class="dot" style="${dotStyle}"></div>
       <div class="flight-info">
         <div class="flight-callsign">${esc(f.callsign)}</div>
         ${route ? `<div class="flight-route">${esc(route)}</div>` : ''}
       </div>
-      <div class="flight-dist">${formatDist(f.distanceKm)}</div>
+      <div class="flight-dist">${f.offRadar ? 'off radar' : formatDist(f.distanceKm)}</div>
     </div>`;
 }
 
@@ -687,12 +697,14 @@ function renderCompass() {
     ctx.fillText(lbl, lx, ly);
   });
 
-  // Plane silhouettes — scale with canvas
+  // Plane silhouettes — scale with canvas. Skip off-radar tracked flights;
+  // they have no valid position to plot but still appear in the sidebar/detail.
   const planeSize = Math.max(6, cssSize * 0.022);
-  const maxDist = Math.max(...state.flights.map(f => f.distanceKm), 1);
+  const onRadar = state.flights.filter(f => !f.offRadar);
+  const maxDist = Math.max(...onRadar.map(f => f.distanceKm), 1);
 
   const focusedId = effectiveFocusedId();
-  const renderOrder = state.flights.slice().sort((a, b) => {
+  const renderOrder = onRadar.slice().sort((a, b) => {
     if (a.id === focusedId) return 1;
     if (b.id === focusedId) return -1;
     return 0;
@@ -737,10 +749,24 @@ function renderCompass() {
   });
 }
 
-// Locked id wins over focused — receiver always shows the locked plane.
+// Priority for the detail-panel focus:
+//   1. Locked flight (user explicitly pinned it)
+//   2. Rotation through tracked flights (when 1+ are tracked, cycle every ~8s)
+//   3. Phone's focused flight (closest by default)
+let rotationIndex = 0;
+
 function effectiveFocusedId() {
-  return state.lockedFlightId || state.focusedFlightId;
+  if (state.lockedFlightId) return state.lockedFlightId;
+  const tracked = state.flights.filter(f => state.trackedIds.includes(f.id));
+  if (tracked.length > 0) {
+    return tracked[rotationIndex % tracked.length].id;
+  }
+  return state.focusedFlightId;
 }
+
+// Tick the rotation index every 8s. The detail panel updates on the next
+// render (which we also fire here). Locked? Index still ticks but is ignored.
+setInterval(() => { rotationIndex++; render(); }, 8000);
 
 // Elevation angle from ground (degrees) — used to detect "overhead"
 function elevationDeg(distanceKm, altitudeFt) {
@@ -807,6 +833,7 @@ function renderDetail() {
           <span class="detail-callsign">${esc(f.callsign)}</span>
           ${f.interesting ? '<span class="interesting-badge">★</span>' : ''}
           ${isLocked ? '<span class="lock-badge">🔒 LOCKED</span>' : ''}
+          ${f.offRadar ? '<span class="offradar-badge">OFF RADAR</span>' : ''}
         </div>
         <div class="detail-airline">${esc(f.airline)}</div>
       </div>
