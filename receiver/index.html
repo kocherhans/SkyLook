@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SkyLook</title>
+<script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #06090F; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: #fff;
+  }
+
+  /* ── Layout ───────────────────────────────────────────────────── */
+  #app { display: flex; width: 100%; height: 100%; }
+
+  #left { width: 300px; flex-shrink: 0; height: 100%; background: rgba(0,0,0,.28); padding: 32px 28px; display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+  #center { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; padding: 40px; }
+  #right { width: 360px; flex-shrink: 0; height: 100%; background: rgba(0,0,0,.28); padding: 32px 28px; overflow-y: auto; }
+
+  /* ── Left: clock ─────────────────────────────────────────────── */
+  #clock { font-size: 46px; font-weight: 200; letter-spacing: -1px; color: #fff; }
+
+  /* ── Left: stat pills ────────────────────────────────────────── */
+  #stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat-pill {
+    background: rgba(77,166,255,.1); border-radius: 10px;
+    padding: 8px 12px; display: flex; flex-direction: column;
+  }
+  .stat-pill.purple { background: rgba(167,139,250,.1); }
+  .stat-pill .val { font-size: 18px; font-weight: 700; color: #4DA6FF; }
+  .stat-pill.purple .val { color: #A78BFA; }
+  .stat-pill .lbl { font-size: 11px; color: rgba(77,166,255,.6); }
+  .stat-pill.purple .lbl { color: rgba(167,139,250,.6); }
+
+  /* ── Left: freshness ─────────────────────────────────────────── */
+  #freshness { font-size: 10px; font-weight: 600; letter-spacing: .5px; }
+  #freshness.live { color: rgba(77,166,255,.6); }
+  #freshness.stale { color: rgba(248,113,113,.6); }
+  #freshness.demo {
+    color: rgba(167,139,250,.8); background: rgba(167,139,250,.15);
+    padding: 3px 6px; border-radius: 4px; display: inline-block;
+  }
+
+  /* ── Left: divider ───────────────────────────────────────────── */
+  .divider { border: none; border-top: 1px solid rgba(255,255,255,.07); }
+
+  /* ── Left: section labels ────────────────────────────────────── */
+  .section-lbl { font-size: 10px; font-weight: 700; letter-spacing: .8px; color: rgba(255,255,255,.3); }
+  #tracked-section .section-lbl { color: rgba(77,166,255,.7); }
+
+  /* ── Flight rows ─────────────────────────────────────────────── */
+  .flight-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 8px; border-radius: 8px;
+  }
+  .flight-row.dimmed { opacity: .35; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .flight-info { flex: 1; min-width: 0; }
+  .flight-callsign { font-size: 13px; font-weight: 600; color: #fff; }
+  .flight-route { font-size: 10px; color: rgba(255,255,255,.35); }
+  .flight-dist { font-size: 10px; color: rgba(255,255,255,.4); flex-shrink: 0; }
+
+  /* ── Center: canvas watermark ────────────────────────────────── */
+  #compass { width: 100%; height: 100%; display: block; }
+  #watermark {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; font-weight: 300; letter-spacing: 3px;
+    color: rgba(255,255,255,.07);
+    pointer-events: none;
+  }
+
+  /* ── Right: detail panel ─────────────────────────────────────── */
+  #right { display: flex; flex-direction: column; gap: 0; }
+
+  .detail-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .airline-logo {
+    width: 52px; height: 52px; border-radius: 12px;
+    background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; color: rgba(255,255,255,.6); flex-shrink: 0;
+  }
+  .detail-callsign { font-size: 26px; font-weight: 700; color: #fff; }
+  .detail-airline { font-size: 13px; color: rgba(255,255,255,.55); margin-top: 2px; }
+  .interesting-badge {
+    display: inline-block; background: rgba(167,139,250,.15); color: #A78BFA;
+    font-size: 11px; padding: 2px 5px; border-radius: 4px; margin-left: 8px; vertical-align: middle;
+  }
+
+  .where-box {
+    border-radius: 14px; padding: 14px; margin-bottom: 16px;
+  }
+  .where-label { font-size: 9px; font-weight: 800; letter-spacing: 1px; margin-bottom: 4px; }
+  .where-text { font-size: 18px; font-weight: 600; color: #fff; }
+
+  .route-card {
+    background: rgba(255,255,255,.05); border-radius: 14px;
+    padding: 16px; margin-bottom: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .route-row { display: flex; justify-content: space-between; align-items: center; }
+  .route-iata { font-size: 22px; font-weight: 700; color: #fff; }
+  .route-city { font-size: 11px; color: rgba(255,255,255,.45); margin-top: 1px; }
+  .route-arrow { font-size: 18px; }
+  .progress-track {
+    height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
+  }
+  .progress-fill { height: 100%; border-radius: 2px; }
+
+  .stats-grid { display: flex; flex-direction: column; gap: 8px; }
+  .stat-row { display: flex; justify-content: space-between; }
+  .stat-lbl { font-size: 13px; color: rgba(255,255,255,.4); }
+  .stat-val { font-size: 13px; font-weight: 500; color: #fff; }
+
+  /* ── Right: idle panel ───────────────────────────────────────── */
+  #idle-panel {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 0;
+  }
+  .idle-plane { font-size: 52px; display: block; margin-bottom: 20px; }
+  .idle-title { font-size: 30px; font-weight: 200; letter-spacing: 2px; color: rgba(255,255,255,.55); margin-bottom: 12px; }
+  .idle-sub { font-size: 13px; color: rgba(255,255,255,.3); text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Left panel -->
+  <div id="left">
+    <div id="clock">--:--</div>
+    <div id="stats-row">
+      <div class="stat-pill" id="aircraft-pill">
+        <span class="val" id="aircraft-count">0</span>
+        <span class="lbl">aircraft</span>
+      </div>
+      <div class="stat-pill purple" id="tracked-pill" style="display:none">
+        <span class="val" id="tracked-count">0</span>
+        <span class="lbl">tracked</span>
+      </div>
+    </div>
+    <div id="freshness" class="demo">DEMO DATA</div>
+    <hr class="divider">
+    <div id="tracked-section" style="display:none">
+      <div class="section-lbl">TRACKED</div>
+      <div id="tracked-list"></div>
+      <hr class="divider" style="margin-top:10px">
+    </div>
+    <div class="section-lbl">NEARBY</div>
+    <div id="nearby-list" style="flex:1; overflow-y:auto;"></div>
+  </div>
+
+  <!-- Center compass -->
+  <div id="center">
+    <canvas id="compass"></canvas>
+    <div id="watermark">SkyLook</div>
+  </div>
+
+  <!-- Right panel -->
+  <div id="right">
+    <div id="detail-panel" style="display:none"></div>
+    <div id="idle-panel">
+      <span class="idle-plane">✈</span>
+      <div class="idle-title">SkyLook</div>
+      <div class="idle-sub">Tap any aircraft on your phone<br>to see it here.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Cast receiver setup ──────────────────────────────────────────
+const castContext = cast.framework.CastReceiverContext.getInstance();
+castContext.addCustomMessageListener('urn:x-cast:com.skylook.flights', e => {
+  try { updateState(JSON.parse(e.data)); } catch(_) {}
+});
+castContext.start({ disableIdleTimeout: true });
+
+// ── State ────────────────────────────────────────────────────────
+let state = { flights: [], trackedIds: [], focusedFlightId: null, unitSystem: 'METRIC', lastUpdated: null };
+
+function updateState(s) {
+  state = s;
+  render();
+}
+
+// ── Clock ────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('clock').textContent = h + ':' + m;
+}
+updateClock();
+setInterval(updateClock, 10000);
+
+// ── Bearing helpers ──────────────────────────────────────────────
+function bearingColor(bearing) {
+  const a = Math.abs(((bearing % 360) + 540) % 360 - 180);  // rel from north-up
+  if (a < 60)  return '#5BB3FF';  // north / front
+  if (a < 130) return '#9B7DFF';  // sides
+  return '#FF5B7A';               // south / rear
+}
+
+function humanDirection(bearing, altitudeFt) {
+  const dirs = ['North', 'North-East', 'East', 'South-East', 'South', 'South-West', 'West', 'North-West'];
+  const dir  = dirs[Math.round(((bearing % 360) + 360) % 360 / 45) % 8];
+  const elevDeg = Math.round(Math.atan2(altitudeFt * 0.3048, /* assume 10km if dist unknown */ 10000) * 180 / Math.PI);
+  if (elevDeg > 60) return 'Almost overhead';
+  if (elevDeg > 30) return `${dir} — high`;
+  if (elevDeg > 10) return `${dir} — mid`;
+  return `${dir} — low on horizon`;
+}
+
+// ── Unit formatting ──────────────────────────────────────────────
+function formatAlt(ft) {
+  if (state.unitSystem === 'IMPERIAL') return Math.round(ft).toLocaleString() + ' ft';
+  return Math.round(ft * 0.3048).toLocaleString() + ' m';
+}
+function formatSpeed(mph) {
+  if (state.unitSystem === 'IMPERIAL') return Math.round(mph) + ' mph';
+  return Math.round(mph * 1.60934) + ' km/h';
+}
+function formatDist(km) {
+  if (state.unitSystem === 'IMPERIAL') return (km * 0.621371).toFixed(1) + ' mi';
+  return km.toFixed(1) + ' km';
+}
+
+// ── Render ───────────────────────────────────────────────────────
+function render() {
+  renderStats();
+  renderFreshness();
+  renderFlightLists();
+  renderCompass();
+  renderDetail();
+}
+
+function renderStats() {
+  const tracked = state.flights.filter(f => state.trackedIds.includes(f.id));
+  document.getElementById('aircraft-count').textContent = state.flights.length;
+  document.getElementById('tracked-count').textContent  = tracked.length;
+  document.getElementById('tracked-pill').style.display = state.trackedIds.length ? '' : 'none';
+}
+
+function renderFreshness() {
+  const el = document.getElementById('freshness');
+  if (!state.lastUpdated) {
+    el.className = 'demo'; el.textContent = 'DEMO DATA'; return;
+  }
+  const ageMin = Math.floor((Date.now() - state.lastUpdated) / 60000);
+  el.className = ageMin <= 1 ? 'live' : 'stale';
+  el.textContent = ageMin <= 1 ? 'Live' : ageMin + 'm ago';
+}
+
+function renderFlightLists() {
+  const tracked    = state.flights.filter(f =>  state.trackedIds.includes(f.id));
+  const nonTracked = state.flights.filter(f => !state.trackedIds.includes(f.id));
+  const focused    = state.flights.find(f => f.id === state.focusedFlightId) || null;
+
+  const ts = document.getElementById('tracked-section');
+  ts.style.display = tracked.length ? '' : 'none';
+  document.getElementById('tracked-list').innerHTML = tracked.map(f => flightRowHTML(f, false)).join('');
+
+  document.getElementById('nearby-list').innerHTML =
+    nonTracked.map(f => flightRowHTML(f, focused && f.id !== focused.id)).join('');
+}
+
+function flightRowHTML(f, dimmed) {
+  const color = bearingColor(f.bearing);
+  const route = f.fromCode && f.toCode ? `${f.fromCode} → ${f.toCode}` : '';
+  return `
+    <div class="flight-row${dimmed ? ' dimmed' : ''}">
+      <div class="dot" style="background:${color}"></div>
+      <div class="flight-info">
+        <div class="flight-callsign">${esc(f.callsign)}</div>
+        ${route ? `<div class="flight-route">${esc(route)}</div>` : ''}
+      </div>
+      <div class="flight-dist">${formatDist(f.distanceKm)}</div>
+    </div>`;
+}
+
+// ── Compass canvas ───────────────────────────────────────────────
+const canvas = document.getElementById('compass');
+const ctx    = canvas.getContext('2d');
+
+function renderCompass() {
+  const parent = canvas.parentElement;
+  const size   = Math.min(parent.clientWidth, parent.clientHeight);
+  canvas.width  = size;
+  canvas.height = size;
+  const cx = size / 2, cy = size / 2, R = size / 2 - 4;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Background circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.03)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.07)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Distance rings (25%, 50%, 75%)
+  [.25, .5, .75].forEach(pct => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * pct, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Cardinal labels
+  const labels = [['N', 0], ['E', 90], ['S', 180], ['W', 270]];
+  ctx.font = '500 11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  labels.forEach(([lbl, deg]) => {
+    const rad = (deg - 90) * Math.PI / 180;
+    const lx  = cx + (R - 14) * Math.cos(rad);
+    const ly  = cy + (R - 14) * Math.sin(rad);
+    ctx.fillStyle = lbl === 'N' ? 'rgba(77,166,255,.9)' : 'rgba(255,255,255,.25)';
+    ctx.fillText(lbl, lx, ly);
+  });
+
+  // Aircraft dots
+  const maxDist = Math.max(...state.flights.map(f => f.distanceKm), 1);
+  state.flights.forEach(f => {
+    const color  = bearingColor(f.bearing);
+    const focused = f.id === state.focusedFlightId;
+    const tracked = state.trackedIds.includes(f.id);
+    const rad  = (f.bearing - 90) * Math.PI / 180;
+    const dist = (f.distanceKm / maxDist) * R * 0.88;
+    const fx   = cx + dist * Math.cos(rad);
+    const fy   = cy + dist * Math.sin(rad);
+
+    const dotR = focused ? 7 : tracked ? 6 : 4;
+
+    if (focused) {
+      ctx.beginPath();
+      ctx.arc(fx, fy, dotR + 5, 0, Math.PI * 2);
+      ctx.fillStyle = color.replace(')', ', .18)').replace('rgb', 'rgba');
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(fx, fy, dotR, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = focused ? 1 : tracked ? .9 : .65;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Callsign label for focused flight
+    if (focused) {
+      ctx.font = '600 10px system-ui';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(f.callsign, fx, fy - dotR - 4);
+    }
+  });
+}
+
+// ── Detail panel ─────────────────────────────────────────────────
+function renderDetail() {
+  const f = state.flights.find(fl => fl.id === state.focusedFlightId);
+  const detail = document.getElementById('detail-panel');
+  const idle   = document.getElementById('idle-panel');
+  if (!f) { detail.style.display = 'none'; idle.style.display = ''; return; }
+
+  idle.style.display = 'none';
+  detail.style.display = '';
+  const color = bearingColor(f.bearing);
+
+  const progress = f.progress > 0 ? `
+    <div class="progress-track">
+      <div class="progress-fill" style="width:${Math.round(f.progress * 100)}%;background:${color}"></div>
+    </div>` : '';
+
+  const routeCard = f.fromCode && f.toCode ? `
+    <div class="route-card">
+      <div class="route-row">
+        <div>
+          <div class="route-iata">${esc(f.fromCode)}</div>
+          <div class="route-city">${esc(f.fromCity)}</div>
+        </div>
+        <div class="route-arrow" style="color:${color}">✈</div>
+        <div style="text-align:right">
+          <div class="route-iata">${esc(f.toCode)}</div>
+          <div class="route-city">${esc(f.toCity)}</div>
+        </div>
+      </div>
+      ${progress}
+    </div>` : '';
+
+  const nearestRow = f.overheadMin < 999 ? statRow('Nearest in', f.overheadMin + ' min') : '';
+
+  detail.innerHTML = `
+    <div class="detail-header">
+      <div class="airline-logo">${esc(f.airlineIataCode || f.callsign.slice(0,2))}</div>
+      <div>
+        <div>
+          <span class="detail-callsign">${esc(f.callsign)}</span>
+          ${f.interesting ? '<span class="interesting-badge">★</span>' : ''}
+        </div>
+        <div class="detail-airline">${esc(f.airline)}</div>
+      </div>
+    </div>
+    <div class="where-box" style="background:${color}1e">
+      <div class="where-label" style="color:${color}">WHERE TO LOOK</div>
+      <div class="where-text">${humanDirection(f.bearing, f.altitudeFt)}</div>
+    </div>
+    ${routeCard}
+    <div class="stats-grid">
+      ${statRow('Altitude', formatAlt(f.altitudeFt))}
+      ${statRow('Speed',    formatSpeed(f.speedMph))}
+      ${statRow('Distance', formatDist(f.distanceKm))}
+      ${f.model ? statRow('Aircraft', f.model) : ''}
+      ${statRow('Status', f.status)}
+      ${nearestRow}
+    </div>`;
+}
+
+function statRow(label, value) {
+  return `<div class="stat-row"><span class="stat-lbl">${esc(label)}</span><span class="stat-val">${esc(value)}</span></div>`;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Resize compass on window resize ─────────────────────────────
+window.addEventListener('resize', renderCompass);
+
+// ── Initial render with mock data ────────────────────────────────
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SkyLook — Interactive prototype</title>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    background: #06090F;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100%;
+  }
+  input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 28px; height: 28px; cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border: none; cursor: pointer; }
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="compass.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="widgets.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+
+<script type="text/babel">
+// Full aircraft data for off-phone surfaces (TV, smart display, widgets)
+const WIDGET_DATA = [
+  { id: 'BA123', callsign: 'BA123', airline: 'British Airways', model: 'Boeing 777-300ER',
+    bearing: 5,   altitudeFt: 32500, speedMph: 515, overheadMin: 2,  distance: 3.2,
+    fromCode: 'JFK', fromCity: 'New York',      toCode: 'LHR', toCity: 'London',
+    timeLabel: '2:15', progress: 0.58, interesting: false, status: 'En route' },
+  { id: 'EK7',   callsign: 'EK7',   airline: 'Emirates',        model: 'Airbus A380-800',
+    bearing: 140, altitudeFt: 41000, speedMph: 575, overheadMin: 8,  distance: 15,
+    fromCode: 'DXB', fromCity: 'Dubai',          toCode: 'JFK', toCity: 'New York',
+    timeLabel: '8:00', progress: 0.52, interesting: true,  status: 'En route' },
+  { id: 'UA88',  callsign: 'UA88',  airline: 'United Airlines',  model: 'Airbus A350-900',
+    bearing: 78,  altitudeFt: 38000, speedMph: 540, overheadMin: 5,  distance: 5.6,
+    fromCode: 'SFO', fromCity: 'San Francisco',  toCode: 'FRA', toCity: 'Frankfurt',
+    timeLabel: '5:48', progress: 0.42, interesting: false, status: 'En route' },
+  { id: 'LH401', callsign: 'LH401', airline: 'Lufthansa',        model: 'Airbus A340-600',
+    bearing: 305, altitudeFt: 36000, speedMph: 525, overheadMin: 30, distance: 42,
+    fromCode: 'MUC', fromCity: 'Munich',         toCode: 'IAD', toCity: 'Washington',
+    timeLabel: '30:00', progress: 0.85, interesting: false, status: 'En route' },
+  { id: 'AF22',  callsign: 'AF22',  airline: 'Air France',       model: 'Boeing 787-9',
+    bearing: 188, altitudeFt: 28000, speedMph: 480, overheadMin: 12, distance: 8.1,
+    fromCode: 'CDG', fromCity: 'Paris',          toCode: 'BOS', toCity: 'Boston',
+    timeLabel: '12:32', progress: 0.7,  interesting: false, status: 'En route' },
+];
+
+function Root() {
+  return (
+    <DesignCanvas>
+      <DCSection id="live" title="Live demo" subtitle="Click through the full flow — onboarding → main app">
+        <DCArtboard id="live-flow" label="Tap through the prototype" width={402} height={874}>
+          <Phone />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="onboarding" title="Onboarding" subtitle="Adapts to whether the device has a compass / gyro">
+        <DCArtboard id="ob-1" label="01 — Welcome" width={402} height={874}>
+          <Phone initialScreen="welcome" />
+        </DCArtboard>
+        <DCArtboard id="ob-2" label="02 — Location permission" width={402} height={874}>
+          <Phone initialScreen="location" />
+        </DCArtboard>
+        <DCArtboard id="ob-3a" label="03a — Sensor check (gyro found)" width={402} height={874}>
+          <Phone initialScreen="sensor-gyro" />
+        </DCArtboard>
+        <DCArtboard id="ob-3b" label="03b — Sensor check (no compass)" width={402} height={874}>
+          <Phone initialScreen="sensor-manual" />
+        </DCArtboard>
+        <DCArtboard id="ob-4" label="04 — Manual calibration" width={402} height={874}>
+          <Phone initialScreen="manual-cal" />
+        </DCArtboard>
+        <DCArtboard id="ob-5" label="05 — Tutorial (touch-first)" width={402} height={874}>
+          <Phone initialScreen="tutorial" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="main" title="Main radar — 3 states" subtitle="Same screen, three levels of engagement">
+        <DCArtboard id="m-idle" label="Idle — scanning" width={402} height={874}>
+          <Phone initialScreen="main-idle" />
+        </DCArtboard>
+        <DCArtboard id="m-focus" label="Focused — beam cone" width={402} height={874}>
+          <Phone initialScreen="main-focused" />
+        </DCArtboard>
+        <DCArtboard id="m-lock" label="Locked — full inline info + track button" width={402} height={874}>
+          <Phone initialScreen="main-locked" />
+        </DCArtboard>
+        <DCArtboard id="m-manual" label="Idle (manual heading)" width={402} height={874}>
+          <Phone initialScreen="main-idle" deviceMode="manual" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="overlays" title="Filter, detail & track" subtitle="Radius filter · lock-on detail · track a flight">
+        <DCArtboard id="ov-filter" label="Radius filter" width={402} height={874}>
+          <Phone initialScreen="filter" />
+        </DCArtboard>
+        <DCArtboard id="ov-detail" label="Lock-on full detail + track toggle" width={402} height={874}>
+          <Phone initialScreen="detail" />
+        </DCArtboard>
+        <DCArtboard id="ov-track" label="Track a flight — search + manage" width={402} height={874}>
+          <Phone initialScreen="track" />
+        </DCArtboard>
+        <DCArtboard id="ov-settings" label="Settings" width={402} height={874}>
+          <Phone initialScreen="settings" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="widgets" title="Home-screen widgets" subtitle="iOS widget family — small, medium, large">
+        <DCArtboard id="w-s" label="Small (2×2)" width={250} height={250}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: 'transparent' }}>
+            <WidgetSmall aircraft={WIDGET_DATA} nextIn="2:15" />
+          </div>
+        </DCArtboard>
+        <DCArtboard id="w-m" label="Medium (4×2)" width={444} height={250}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <WidgetMedium aircraft={WIDGET_DATA} nextIn="2:15" />
+          </div>
+        </DCArtboard>
+        <DCArtboard id="w-l" label="Large (4×4)" width={444} height={462}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <WidgetLarge aircraft={WIDGET_DATA} nextIn="2:15" />
+          </div>
+        </DCArtboard>
+        <DCArtboard id="w-home" label="On home screen (large)" width={402} height={580}>
+          <HomeScreen label="— Long-press to reorder —">
+            <WidgetLarge aircraft={WIDGET_DATA} nextIn="2:15" />
+          </HomeScreen>
+        </DCArtboard>
+        <DCArtboard id="w-home-stack" label="On home screen (medium + small)" width={402} height={580}>
+          <HomeScreen>
+            <WidgetMedium aircraft={WIDGET_DATA} nextIn="2:15" />
+            <div style={{ display: 'flex', gap: 18 }}>
+              <WidgetSmall aircraft={WIDGET_DATA} nextIn="2:15" />
+              <div style={{ width: 170, height: 170, borderRadius: 22, background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 0.5, backdropFilter: 'blur(20px)' }}>Other app</div>
+            </div>
+          </HomeScreen>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="smart-display" title="Smart display" subtitle="Always-on countertop display — landscape 1024×600">
+        <DCArtboard id="sd-bare" label="Widget surface" width={1024} height={600}>
+          <SmartDisplay aircraft={WIDGET_DATA} nextIn="2:15" trackedIds={['BA123']} />
+        </DCArtboard>
+        <DCArtboard id="sd-frame" label="In situ — in its dock" width={1068} height={750}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <SmartDisplayChrome>
+              <SmartDisplay aircraft={WIDGET_DATA} nextIn="2:15" trackedIds={['BA123']} />
+            </SmartDisplayChrome>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="tv" title="TV ambient view" subtitle="Living-room screen — always-on, at-a-glance · click any aircraft to inspect">
+        <DCArtboard id="tv-bare" label="Screen content (1920×1080)" width={1920} height={1080}>
+          <TVView aircraft={WIDGET_DATA} nextIn="2:15" trackedIds={['BA123']} />
+        </DCArtboard>
+        <DCArtboard id="tv-frame" label="In situ — in a TV bezel" width={1992} height={1300}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <TVChrome>
+              <TVView aircraft={WIDGET_DATA} nextIn="2:15" trackedIds={['BA123']} />
+            </TVChrome>
+          </div>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<Root />);
+</script>
+</body>
+</html>
