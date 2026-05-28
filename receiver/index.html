@@ -13,114 +13,181 @@
     color: #fff;
   }
 
+  /* ── Responsive sidebar widths via clamp() ───────────────────── */
+  /* min 180, ideal 18% of viewport, max 320 (left)  /  max 360 (right) */
+  :root {
+    --left-w:  clamp(180px, 18vw, 320px);
+    --right-w: clamp(200px, 20vw, 360px);
+    --pad-side: clamp(14px, 1.8vw, 32px);
+    --pad-top:  clamp(14px, 2.5vh, 32px);
+    --gap:      clamp(10px, 1.6vh, 18px);
+  }
+
+  /* Very small displays (e.g. Nest Hub 1024×600 with extra chrome): trim right panel */
+  @media (max-width: 1100px) {
+    :root { --right-w: clamp(180px, 26vw, 260px); }
+  }
+  /* Tiny: hide right panel entirely, the compass + left list is enough */
+  @media (max-width: 720px) {
+    :root { --right-w: 0px; }
+    #right { display: none !important; }
+  }
+
   /* ── Layout ───────────────────────────────────────────────────── */
   #app { display: flex; width: 100%; height: 100%; }
 
-  #left { width: 300px; flex-shrink: 0; height: 100%; background: rgba(0,0,0,.28); padding: 32px 28px; display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
-  #center { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; padding: 40px; }
-  #right { width: 360px; flex-shrink: 0; height: 100%; background: rgba(0,0,0,.28); padding: 32px 28px; overflow-y: auto; }
+  #left {
+    width: var(--left-w); flex-shrink: 0; height: 100%;
+    background: rgba(0,0,0,.28);
+    padding: var(--pad-top) var(--pad-side);
+    display: flex; flex-direction: column; gap: var(--gap);
+    overflow: hidden;
+  }
+  #center {
+    flex: 1; min-width: 0; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; padding: clamp(12px, 2vw, 40px);
+  }
+  #right {
+    width: var(--right-w); flex-shrink: 0; height: 100%;
+    background: rgba(0,0,0,.28);
+    padding: var(--pad-top) var(--pad-side);
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
 
   /* ── Left: clock ─────────────────────────────────────────────── */
-  #clock { font-size: 46px; font-weight: 200; letter-spacing: -1px; color: #fff; }
+  #clock {
+    font-size: clamp(32px, 4.6vw, 56px);
+    font-weight: 200; letter-spacing: -1px; color: #fff; line-height: 1;
+  }
 
   /* ── Left: stat pills ────────────────────────────────────────── */
-  #stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  #stats-row { display: flex; gap: 10px; flex-wrap: wrap; }
   .stat-pill {
     background: rgba(77,166,255,.1); border-radius: 10px;
-    padding: 8px 12px; display: flex; flex-direction: column;
+    padding: 7px 11px; display: flex; flex-direction: column; min-width: 70px;
   }
   .stat-pill.purple { background: rgba(167,139,250,.1); }
-  .stat-pill .val { font-size: 18px; font-weight: 700; color: #4DA6FF; }
+  .stat-pill .val { font-size: clamp(15px, 1.5vw, 20px); font-weight: 700; color: #4DA6FF; line-height: 1.1; }
   .stat-pill.purple .val { color: #A78BFA; }
-  .stat-pill .lbl { font-size: 11px; color: rgba(77,166,255,.6); }
+  .stat-pill .lbl { font-size: 10px; color: rgba(77,166,255,.6); }
   .stat-pill.purple .lbl { color: rgba(167,139,250,.6); }
 
   /* ── Left: freshness ─────────────────────────────────────────── */
-  #freshness { font-size: 10px; font-weight: 600; letter-spacing: .5px; }
+  #freshness { font-size: 10px; font-weight: 600; letter-spacing: .5px; align-self: flex-start; }
   #freshness.live { color: rgba(77,166,255,.6); }
   #freshness.stale { color: rgba(248,113,113,.6); }
   #freshness.demo {
     color: rgba(167,139,250,.8); background: rgba(167,139,250,.15);
-    padding: 3px 6px; border-radius: 4px; display: inline-block;
+    padding: 3px 6px; border-radius: 4px;
   }
 
   /* ── Left: divider ───────────────────────────────────────────── */
-  .divider { border: none; border-top: 1px solid rgba(255,255,255,.07); }
+  .divider { border: none; border-top: 1px solid rgba(255,255,255,.07); margin: 4px 0; }
 
   /* ── Left: section labels ────────────────────────────────────── */
-  .section-lbl { font-size: 10px; font-weight: 700; letter-spacing: .8px; color: rgba(255,255,255,.3); }
+  .section-lbl { font-size: 10px; font-weight: 700; letter-spacing: .8px; color: rgba(255,255,255,.3); margin-bottom: 6px; }
   #tracked-section .section-lbl { color: rgba(77,166,255,.7); }
 
   /* ── Flight rows ─────────────────────────────────────────────── */
+  #nearby-list { flex: 1; overflow-y: auto; min-height: 0; }
   .flight-row {
     display: flex; align-items: center; gap: 10px;
-    padding: 7px 8px; border-radius: 8px;
+    padding: 6px 6px; border-radius: 8px;
+    transition: background .15s;
   }
+  .flight-row.focused { background: rgba(77,166,255,.12); }
   .flight-row.dimmed { opacity: .35; }
   .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .flight-info { flex: 1; min-width: 0; }
-  .flight-callsign { font-size: 13px; font-weight: 600; color: #fff; }
-  .flight-route { font-size: 10px; color: rgba(255,255,255,.35); }
+  .flight-callsign {
+    font-size: clamp(11px, 1vw, 14px); font-weight: 600; color: #fff;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .flight-route {
+    font-size: 10px; color: rgba(255,255,255,.4);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .flight-dist { font-size: 10px; color: rgba(255,255,255,.4); flex-shrink: 0; }
 
-  /* ── Center: canvas watermark ────────────────────────────────── */
-  #compass { width: 100%; height: 100%; display: block; }
+  /* ── Center: square wrap for the compass canvas ──────────────── */
+  #compass-wrap {
+    aspect-ratio: 1 / 1;
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;            /* shrink from width if needed */
+    height: auto;
+    position: relative;
+  }
+  /* When viewport is more landscape than the wrap, switch to height-bound */
+  @supports (aspect-ratio: 1 / 1) {
+    #compass-wrap { width: auto; height: 100%; }
+  }
+  #compass { display: block; width: 100%; height: 100%; }
+
   #watermark {
-    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
-    font-size: 12px; font-weight: 300; letter-spacing: 3px;
-    color: rgba(255,255,255,.07);
-    pointer-events: none;
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; font-weight: 300; letter-spacing: 3px;
+    color: rgba(255,255,255,.07); pointer-events: none;
   }
 
   /* ── Right: detail panel ─────────────────────────────────────── */
-  #right { display: flex; flex-direction: column; gap: 0; }
-
-  .detail-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
   .airline-logo {
-    width: 52px; height: 52px; border-radius: 12px;
+    width: clamp(40px, 4vw, 56px); aspect-ratio: 1/1; border-radius: 12px;
     background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 700; color: rgba(255,255,255,.6); flex-shrink: 0;
+    font-size: clamp(14px, 1.4vw, 18px); font-weight: 700; color: rgba(255,255,255,.7); flex-shrink: 0;
   }
-  .detail-callsign { font-size: 26px; font-weight: 700; color: #fff; }
-  .detail-airline { font-size: 13px; color: rgba(255,255,255,.55); margin-top: 2px; }
+  .detail-callsign {
+    font-size: clamp(20px, 2vw, 28px); font-weight: 700; color: #fff;
+    overflow-wrap: break-word;
+  }
+  .detail-airline { font-size: clamp(11px, 1vw, 14px); color: rgba(255,255,255,.55); margin-top: 2px; }
   .interesting-badge {
     display: inline-block; background: rgba(167,139,250,.15); color: #A78BFA;
     font-size: 11px; padding: 2px 5px; border-radius: 4px; margin-left: 8px; vertical-align: middle;
   }
 
-  .where-box {
-    border-radius: 14px; padding: 14px; margin-bottom: 16px;
-  }
+  .where-box { border-radius: 12px; padding: 12px; margin-bottom: 14px; }
   .where-label { font-size: 9px; font-weight: 800; letter-spacing: 1px; margin-bottom: 4px; }
-  .where-text { font-size: 18px; font-weight: 600; color: #fff; }
+  .where-text { font-size: clamp(14px, 1.4vw, 18px); font-weight: 600; color: #fff; }
 
   .route-card {
-    background: rgba(255,255,255,.05); border-radius: 14px;
-    padding: 16px; margin-bottom: 16px;
+    background: rgba(255,255,255,.05); border-radius: 12px;
+    padding: 14px; margin-bottom: 14px;
     display: flex; flex-direction: column; gap: 10px;
   }
-  .route-row { display: flex; justify-content: space-between; align-items: center; }
-  .route-iata { font-size: 22px; font-weight: 700; color: #fff; }
-  .route-city { font-size: 11px; color: rgba(255,255,255,.45); margin-top: 1px; }
-  .route-arrow { font-size: 18px; }
-  .progress-track {
-    height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden;
-  }
+  .route-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .route-iata { font-size: clamp(16px, 1.7vw, 22px); font-weight: 700; color: #fff; }
+  .route-city { font-size: 10px; color: rgba(255,255,255,.45); margin-top: 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .route-arrow { font-size: 16px; flex-shrink: 0; }
+  .progress-track { height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
   .progress-fill { height: 100%; border-radius: 2px; }
 
-  .stats-grid { display: flex; flex-direction: column; gap: 8px; }
-  .stat-row { display: flex; justify-content: space-between; }
-  .stat-lbl { font-size: 13px; color: rgba(255,255,255,.4); }
-  .stat-val { font-size: 13px; font-weight: 500; color: #fff; }
+  .stats-grid { display: flex; flex-direction: column; gap: 7px; }
+  .stat-row { display: flex; justify-content: space-between; gap: 8px; }
+  .stat-lbl { font-size: clamp(11px, 1vw, 13px); color: rgba(255,255,255,.4); flex-shrink: 0; }
+  .stat-val { font-size: clamp(11px, 1vw, 13px); font-weight: 500; color: #fff;
+    text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── Right: idle panel ───────────────────────────────────────── */
   #idle-panel {
     flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 0;
+    align-items: center; justify-content: center;
   }
-  .idle-plane { font-size: 52px; display: block; margin-bottom: 20px; }
-  .idle-title { font-size: 30px; font-weight: 200; letter-spacing: 2px; color: rgba(255,255,255,.55); margin-bottom: 12px; }
-  .idle-sub { font-size: 13px; color: rgba(255,255,255,.3); text-align: center; line-height: 1.6; }
+  .idle-plane { font-size: clamp(36px, 4vw, 52px); display: block; margin-bottom: 16px; }
+  .idle-title { font-size: clamp(20px, 2.2vw, 30px); font-weight: 200; letter-spacing: 2px; color: rgba(255,255,255,.55); margin-bottom: 10px; }
+  .idle-sub { font-size: clamp(11px, 1vw, 13px); color: rgba(255,255,255,.3); text-align: center; line-height: 1.6; }
+
+  /* ── Error toast (visible if cast message parsing fails) ─────── */
+  #err {
+    position: fixed; bottom: 8px; right: 12px;
+    background: rgba(248,113,113,.15); color: #F87171;
+    font-size: 10px; padding: 6px 10px; border-radius: 6px;
+    max-width: 360px; display: none; z-index: 1000;
+  }
 </style>
 </head>
 <body>
@@ -143,16 +210,18 @@
     <div id="tracked-section" style="display:none">
       <div class="section-lbl">TRACKED</div>
       <div id="tracked-list"></div>
-      <hr class="divider" style="margin-top:10px">
+      <hr class="divider">
     </div>
     <div class="section-lbl">NEARBY</div>
-    <div id="nearby-list" style="flex:1; overflow-y:auto;"></div>
+    <div id="nearby-list"></div>
   </div>
 
   <!-- Center compass -->
   <div id="center">
-    <canvas id="compass"></canvas>
-    <div id="watermark">SkyLook</div>
+    <div id="compass-wrap">
+      <canvas id="compass"></canvas>
+      <div id="watermark">SkyLook</div>
+    </div>
   </div>
 
   <!-- Right panel -->
@@ -166,34 +235,59 @@
   </div>
 </div>
 
+<div id="err"></div>
+
 <script>
 // ── Configuration ────────────────────────────────────────────────
-// Default location for standalone mode. Override per-device by loading
-// the URL with ?lat=51.5&lon=-0.1
 const DEFAULT_LAT = 51.5074;
 const DEFAULT_LON = -0.1278;
-const RADIUS_NM   = 30;        // ~55 km
+const RADIUS_NM   = 30;
 const POLL_MS     = 30_000;
 
+// ── State ────────────────────────────────────────────────────────
+let state = { flights: [], trackedIds: [], focusedFlightId: null, unitSystem: 'METRIC', lastUpdated: null };
+
+function updateState(s) {
+  // Merge so partial updates don't wipe other fields
+  state = Object.assign({}, state, s);
+  render();
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
 // ── Cast receiver setup ──────────────────────────────────────────
-const castContext = cast.framework.CastReceiverContext.getInstance();
 let phoneActive = false;
+try {
+  const castContext = cast.framework.CastReceiverContext.getInstance();
 
-castContext.addCustomMessageListener('urn:x-cast:com.skylook.flights', e => {
-  try {
-    updateState(JSON.parse(e.data));
-    phoneActive = true;     // phone is now the source of truth
-  } catch(_) {}
-});
+  castContext.addCustomMessageListener('urn:x-cast:com.skylook.flights', e => {
+    try {
+      const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      console.log('SkyLook: cast message', data);
+      updateState(data);
+      phoneActive = true;
+    } catch (err) {
+      console.error('SkyLook: bad cast message', err, e.data);
+      showErr('Cast parse error: ' + err.message);
+    }
+  });
 
-castContext.addEventListener(
-  cast.framework.system.EventType.SENDER_DISCONNECTED,
-  () => { phoneActive = false; }
-);
+  castContext.addEventListener(
+    cast.framework.system.EventType.SENDER_DISCONNECTED,
+    () => { phoneActive = false; console.log('SkyLook: sender disconnected'); }
+  );
 
-castContext.start({ disableIdleTimeout: true });
+  castContext.start({ disableIdleTimeout: true });
+} catch (err) {
+  console.warn('SkyLook: Cast SDK unavailable (browser preview?)', err);
+}
 
-// ── Standalone polling (used when no phone is casting) ───────────
+// ── Airline tables ───────────────────────────────────────────────
 const AIRLINES = {
   AAL:'American Airlines', AFR:'Air France', AIC:'Air India', ANZ:'Air New Zealand',
   AUA:'Austrian Airlines', BAW:'British Airways', CAL:'China Airlines', CCA:'Air China',
@@ -217,6 +311,7 @@ const IATA_CODES = {
   UPS:'5X', VIR:'VS', WJA:'WS', GEC:'LH',
 };
 
+// ── Geometry ─────────────────────────────────────────────────────
 const toRad = d => d * Math.PI / 180;
 const toDeg = r => r * 180 / Math.PI;
 
@@ -255,7 +350,7 @@ function parseAircraft(s, userLat, userLon) {
     : 999;
 
   return {
-    id:              s.hex || callsign,
+    id:              (s.hex || callsign).toUpperCase(),
     callsign,
     airline,
     airlineIataCode: iata,
@@ -265,11 +360,11 @@ function parseAircraft(s, userLat, userLon) {
     speedMph,
     distanceKm:      distance,
     overheadMin,
-    fromCode:        '', fromCity: '',
-    toCode:          '', toCity:   '',
-    progress:        0,
-    interesting:     altFt > 38000 || speedMph > 560 || !!s.mil,
-    status:          'En route',
+    fromCode: '', fromCity: '',
+    toCode:   '', toCity:   '',
+    progress: 0,
+    interesting: altFt > 38000 || speedMph > 560 || !!s.mil,
+    status: 'En route',
   };
 }
 
@@ -304,14 +399,6 @@ async function pollFlights() {
 pollFlights();
 setInterval(pollFlights, POLL_MS);
 
-// ── State ────────────────────────────────────────────────────────
-let state = { flights: [], trackedIds: [], focusedFlightId: null, unitSystem: 'METRIC', lastUpdated: null };
-
-function updateState(s) {
-  state = s;
-  render();
-}
-
 // ── Clock ────────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
@@ -324,16 +411,16 @@ setInterval(updateClock, 10000);
 
 // ── Bearing helpers ──────────────────────────────────────────────
 function bearingColor(bearing) {
-  const a = Math.abs(((bearing % 360) + 540) % 360 - 180);  // rel from north-up
-  if (a < 60)  return '#5BB3FF';  // north / front
-  if (a < 130) return '#9B7DFF';  // sides
-  return '#FF5B7A';               // south / rear
+  const a = Math.abs(((bearing % 360) + 540) % 360 - 180);
+  if (a < 60)  return '#5BB3FF';
+  if (a < 130) return '#9B7DFF';
+  return '#FF5B7A';
 }
 
 function humanDirection(bearing, altitudeFt) {
   const dirs = ['North', 'North-East', 'East', 'South-East', 'South', 'South-West', 'West', 'North-West'];
   const dir  = dirs[Math.round(((bearing % 360) + 360) % 360 / 45) % 8];
-  const elevDeg = Math.round(Math.atan2(altitudeFt * 0.3048, /* assume 10km if dist unknown */ 10000) * 180 / Math.PI);
+  const elevDeg = Math.round(Math.atan2(altitudeFt * 0.3048, 10000) * 180 / Math.PI);
   if (elevDeg > 60) return 'Almost overhead';
   if (elevDeg > 30) return `${dir} — high`;
   if (elevDeg > 10) return `${dir} — mid`;
@@ -383,21 +470,24 @@ function renderFreshness() {
 function renderFlightLists() {
   const tracked    = state.flights.filter(f =>  state.trackedIds.includes(f.id));
   const nonTracked = state.flights.filter(f => !state.trackedIds.includes(f.id));
-  const focused    = state.flights.find(f => f.id === state.focusedFlightId) || null;
+  const focusedId  = state.focusedFlightId;
 
   const ts = document.getElementById('tracked-section');
   ts.style.display = tracked.length ? '' : 'none';
-  document.getElementById('tracked-list').innerHTML = tracked.map(f => flightRowHTML(f, false)).join('');
+  document.getElementById('tracked-list').innerHTML = tracked.map(f => flightRowHTML(f, focusedId)).join('');
 
   document.getElementById('nearby-list').innerHTML =
-    nonTracked.map(f => flightRowHTML(f, focused && f.id !== focused.id)).join('');
+    nonTracked.map(f => flightRowHTML(f, focusedId)).join('');
 }
 
-function flightRowHTML(f, dimmed) {
+function flightRowHTML(f, focusedId) {
   const color = bearingColor(f.bearing);
   const route = f.fromCode && f.toCode ? `${f.fromCode} → ${f.toCode}` : '';
+  const isFocused = focusedId && f.id === focusedId;
+  const isDimmed = focusedId && !isFocused;
+  const cls = isFocused ? ' focused' : (isDimmed ? ' dimmed' : '');
   return `
-    <div class="flight-row${dimmed ? ' dimmed' : ''}">
+    <div class="flight-row${cls}">
       <div class="dot" style="background:${color}"></div>
       <div class="flight-info">
         <div class="flight-callsign">${esc(f.callsign)}</div>
@@ -412,24 +502,32 @@ const canvas = document.getElementById('compass');
 const ctx    = canvas.getContext('2d');
 
 function renderCompass() {
-  const parent = canvas.parentElement;
-  const size   = Math.min(parent.clientWidth, parent.clientHeight);
-  canvas.width  = size;
-  canvas.height = size;
-  const cx = size / 2, cy = size / 2, R = size / 2 - 4;
+  const wrap = document.getElementById('compass-wrap');
+  // The wrap is already square via aspect-ratio. Use its measured size, multiplied
+  // by devicePixelRatio for crisp rendering on hi-DPI displays (Nest Hub is 2x).
+  const cssSize = Math.min(wrap.clientWidth, wrap.clientHeight);
+  if (cssSize < 10) { requestAnimationFrame(renderCompass); return; }
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = cssSize * dpr;
+  canvas.height = cssSize * dpr;
+  canvas.style.width  = cssSize + 'px';
+  canvas.style.height = cssSize + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  ctx.clearRect(0, 0, size, size);
+  const cx = cssSize / 2, cy = cssSize / 2, R = cssSize / 2 - 6;
+
+  ctx.clearRect(0, 0, cssSize, cssSize);
 
   // Background circle
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255,255,255,.03)';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.07)';
+  ctx.strokeStyle = 'rgba(255,255,255,.08)';
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Distance rings (25%, 50%, 75%)
+  // Distance rings
   [.25, .5, .75].forEach(pct => {
     ctx.beginPath();
     ctx.arc(cx, cy, R * pct, 0, Math.PI * 2);
@@ -440,35 +538,52 @@ function renderCompass() {
 
   // Cardinal labels
   const labels = [['N', 0], ['E', 90], ['S', 180], ['W', 270]];
-  ctx.font = '500 11px system-ui';
+  ctx.font = `500 ${Math.max(10, cssSize * 0.022)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   labels.forEach(([lbl, deg]) => {
     const rad = (deg - 90) * Math.PI / 180;
     const lx  = cx + (R - 14) * Math.cos(rad);
     const ly  = cy + (R - 14) * Math.sin(rad);
-    ctx.fillStyle = lbl === 'N' ? 'rgba(77,166,255,.9)' : 'rgba(255,255,255,.25)';
+    ctx.fillStyle = lbl === 'N' ? 'rgba(77,166,255,.9)' : 'rgba(255,255,255,.3)';
     ctx.fillText(lbl, lx, ly);
   });
 
-  // Aircraft dots
+  // Aircraft dots — scale dot size with canvas
+  const baseDot = Math.max(3, cssSize * 0.012);
   const maxDist = Math.max(...state.flights.map(f => f.distanceKm), 1);
-  state.flights.forEach(f => {
-    const color  = bearingColor(f.bearing);
-    const focused = f.id === state.focusedFlightId;
-    const tracked = state.trackedIds.includes(f.id);
-    const rad  = (f.bearing - 90) * Math.PI / 180;
-    const dist = (f.distanceKm / maxDist) * R * 0.88;
-    const fx   = cx + dist * Math.cos(rad);
-    const fy   = cy + dist * Math.sin(rad);
 
-    const dotR = focused ? 7 : tracked ? 6 : 4;
+  // Render unfocused first, focused last so it sits on top
+  const focusedId = state.focusedFlightId;
+  const renderOrder = state.flights.slice().sort((a, b) => {
+    if (a.id === focusedId) return 1;
+    if (b.id === focusedId) return -1;
+    return 0;
+  });
+
+  renderOrder.forEach(f => {
+    const color   = bearingColor(f.bearing);
+    const focused = f.id === focusedId;
+    const tracked = state.trackedIds.includes(f.id);
+    const rad     = (f.bearing - 90) * Math.PI / 180;
+    const dist    = (f.distanceKm / maxDist) * R * 0.88;
+    const fx      = cx + dist * Math.cos(rad);
+    const fy      = cy + dist * Math.sin(rad);
+
+    const dotR = focused ? baseDot * 2.2 : tracked ? baseDot * 1.5 : baseDot;
 
     if (focused) {
+      // Outer halo
+      ctx.beginPath();
+      ctx.arc(fx, fy, dotR + 14, 0, Math.PI * 2);
+      ctx.fillStyle = hexA(color, 0.12);
+      ctx.fill();
+      // Ring
       ctx.beginPath();
       ctx.arc(fx, fy, dotR + 5, 0, Math.PI * 2);
-      ctx.fillStyle = color.replace(')', ', .18)').replace('rgb', 'rgba');
-      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
     }
 
     ctx.beginPath();
@@ -478,15 +593,21 @@ function renderCompass() {
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Callsign label for focused flight
     if (focused) {
-      ctx.font = '600 10px system-ui';
+      ctx.font = `700 ${Math.max(10, cssSize * 0.022)}px system-ui`;
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(f.callsign, fx, fy - dotR - 4);
+      ctx.fillText(f.callsign, fx, fy - dotR - 8);
     }
   });
+}
+
+function hexA(hex, alpha) {
+  // #RRGGBB → rgba(r,g,b,a)
+  const m = hex.match(/#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i);
+  if (!m) return hex;
+  return `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${alpha})`;
 }
 
 // ── Detail panel ─────────────────────────────────────────────────
@@ -513,7 +634,7 @@ function renderDetail() {
           <div class="route-city">${esc(f.fromCity)}</div>
         </div>
         <div class="route-arrow" style="color:${color}">✈</div>
-        <div style="text-align:right">
+        <div style="text-align:right; min-width:0;">
           <div class="route-iata">${esc(f.toCode)}</div>
           <div class="route-city">${esc(f.toCity)}</div>
         </div>
@@ -526,7 +647,7 @@ function renderDetail() {
   detail.innerHTML = `
     <div class="detail-header">
       <div class="airline-logo">${esc(f.airlineIataCode || f.callsign.slice(0,2))}</div>
-      <div>
+      <div style="min-width:0; flex:1;">
         <div>
           <span class="detail-callsign">${esc(f.callsign)}</span>
           ${f.interesting ? '<span class="interesting-badge">★</span>' : ''}
@@ -534,7 +655,7 @@ function renderDetail() {
         <div class="detail-airline">${esc(f.airline)}</div>
       </div>
     </div>
-    <div class="where-box" style="background:${color}1e">
+    <div class="where-box" style="background:${hexA(color, 0.12)}">
       <div class="where-label" style="color:${color}">WHERE TO LOOK</div>
       <div class="where-text">${humanDirection(f.bearing, f.altitudeFt)}</div>
     </div>
@@ -557,10 +678,14 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Resize compass on window resize ─────────────────────────────
-window.addEventListener('resize', renderCompass);
+// ── Resize ───────────────────────────────────────────────────────
+let resizeT;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(render, 100);
+});
 
-// ── Initial render with mock data ────────────────────────────────
+// ── Initial render ───────────────────────────────────────────────
 render();
 </script>
 </body>
