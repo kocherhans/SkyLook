@@ -303,45 +303,67 @@
   }
   .lock-route-meta .eta { color: #5BB3FF; font-weight: 700; }
 
-  /* Stats grid */
-  .lock-stats {
+  /* Vital signs — biggest stats, readable from across the room.
+     Used for the three most important values: altitude, speed, ETA. */
+  .lock-vitals {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: clamp(10px, 1.5vw, 16px);
-    margin-bottom: clamp(16px, 2.5vh, 28px);
+    gap: clamp(12px, 2vw, 20px);
+    margin-bottom: clamp(14px, 2vh, 22px);
   }
-  .lock-stat {
-    background: rgba(255,255,255,0.04);
-    border-radius: 14px;
-    padding: clamp(12px, 2vh, 18px) clamp(14px, 2vw, 20px);
+  .lock-vital {
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: clamp(16px, 2.5vh, 26px) clamp(16px, 2.4vw, 26px);
   }
-  .lock-stat-label {
-    font-size: clamp(9px, 0.9vw, 11px); font-weight: 800; letter-spacing: 1.5px;
-    color: rgba(255,255,255,0.45); margin-bottom: 6px;
+  .lock-vital-label {
+    font-size: clamp(10px, 1vw, 13px); font-weight: 800; letter-spacing: 1.8px;
+    color: rgba(255,255,255,0.5); margin-bottom: 10px;
   }
-  .lock-stat-value {
-    font-size: clamp(18px, 2.4vw, 30px); font-weight: 800;
-    color: #fff; letter-spacing: -0.5px; line-height: 1.1;
+  .lock-vital-value {
+    font-size: clamp(34px, 5vw, 72px); font-weight: 800;
+    color: #fff; letter-spacing: -1.5px; line-height: 1;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .lock-stat-sub { font-size: clamp(11px, 1.1vw, 14px); color: rgba(255,255,255,0.45); margin-top: 4px; }
+  .lock-vital-sub {
+    font-size: clamp(12px, 1.2vw, 15px); color: rgba(255,255,255,0.5); margin-top: 8px;
+  }
 
-  /* Where-to-look hero */
+  /* Secondary stats — compact bar of less critical info */
+  .lock-secondary {
+    display: flex; gap: clamp(14px, 2vw, 24px); flex-wrap: wrap;
+    padding: clamp(10px, 1.5vh, 16px) clamp(14px, 2vw, 20px);
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    margin-bottom: clamp(14px, 2vh, 22px);
+  }
+  .lock-secondary-item {
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .lock-secondary-label {
+    font-size: clamp(9px, 0.85vw, 11px); font-weight: 800; letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.4);
+  }
+  .lock-secondary-value {
+    font-size: clamp(13px, 1.3vw, 17px); font-weight: 700; color: #fff;
+  }
+
+  /* Where-to-look hero — large enough to read from across a room */
   .lock-look {
     margin-top: auto;
-    padding: clamp(14px, 2.5vh, 22px) clamp(20px, 3vw, 32px);
-    background: rgba(91,179,255,0.10);
-    border: 1px solid rgba(91,179,255,0.25);
-    border-radius: 16px;
-    display: flex; align-items: center; gap: 18px;
+    padding: clamp(18px, 3vh, 30px) clamp(22px, 3vw, 36px);
+    background: rgba(91,179,255,0.12);
+    border: 1px solid rgba(91,179,255,0.28);
+    border-radius: 18px;
+    display: flex; align-items: center; gap: 22px;
   }
   .lock-look-label {
-    font-size: clamp(10px, 1vw, 13px); font-weight: 800; letter-spacing: 1.8px;
+    font-size: clamp(11px, 1.1vw, 14px); font-weight: 800; letter-spacing: 1.8px;
     color: #5BB3FF; line-height: 1;
   }
   .lock-look-text {
-    font-size: clamp(18px, 2.4vw, 32px); font-weight: 700;
-    color: #fff; margin-top: 4px; line-height: 1.1;
+    font-size: clamp(30px, 5.2vw, 68px); font-weight: 800;
+    color: #fff; margin-top: 8px; letter-spacing: -1px; line-height: 1.05;
   }
 
   /* ── Error toast (visible if cast message parsing fails) ─────── */
@@ -431,7 +453,11 @@
     </div>
   </div>
 
-  <div class="lock-stats" id="lock-stats"></div>
+  <!-- Vital signs: altitude, speed, ETA — the readable-from-the-couch row -->
+  <div class="lock-vitals" id="lock-vitals"></div>
+
+  <!-- Compact secondary stats: distance, position, status -->
+  <div class="lock-secondary" id="lock-secondary"></div>
 
   <div class="lock-look">
     <div>
@@ -734,33 +760,53 @@ function renderLockView(f) {
     routeEl.style.display = 'none';
   }
 
-  // Stats grid
-  const stats = [
-    { label: 'ALTITUDE',  value: formatAlt(f.altitudeFt) },
-    { label: 'SPEED',     value: formatSpeed(f.speedMph) },
-    { label: 'DISTANCE',  value: formatDist(f.distanceKm), sub: 'from you' },
-    { label: 'STATUS',    value: f.status || '—' },
-    {
-      label: 'POSITION',
-      value: (f.lat && f.lon)
-        ? `${Math.abs(f.lat).toFixed(2)}°${f.lat >= 0 ? 'N' : 'S'}  ${Math.abs(f.lon).toFixed(2)}°${f.lon >= 0 ? 'E' : 'W'}`
-        : '—',
-    },
-    {
-      label: 'TIME TO LANDING',
-      value: f.etaMinutes > 0 ? formatDuration(f.etaMinutes) : '—',
-      sub: f.etaMinutes > 0 ? `arrives ${arrivalTimeStr(f.etaMinutes)}` : null,
-    },
+  // Vital signs — the three most important stats at hero size.
+  // If we don't have ETA (no route info), fall back to showing distance from
+  // you as the third vital so the row stays balanced.
+  const vitals = [
+    { label: 'ALTITUDE', value: formatAlt(f.altitudeFt) },
+    { label: 'SPEED',    value: formatSpeed(f.speedMph) },
+    f.etaMinutes > 0
+      ? {
+          label: 'TIME TO LANDING',
+          value: formatDuration(f.etaMinutes),
+          sub:   `arrives ${arrivalTimeStr(f.etaMinutes)}`,
+        }
+      : {
+          label: 'DISTANCE',
+          value: formatDist(f.distanceKm),
+          sub:   'from you',
+        },
   ];
-  document.getElementById('lock-stats').innerHTML = stats.map(s => `
-    <div class="lock-stat">
-      <div class="lock-stat-label">${esc(s.label)}</div>
-      <div class="lock-stat-value">${esc(s.value)}</div>
-      ${s.sub ? `<div class="lock-stat-sub">${esc(s.sub)}</div>` : ''}
+  document.getElementById('lock-vitals').innerHTML = vitals.map(s => `
+    <div class="lock-vital">
+      <div class="lock-vital-label">${esc(s.label)}</div>
+      <div class="lock-vital-value">${esc(s.value)}</div>
+      ${s.sub ? `<div class="lock-vital-sub">${esc(s.sub)}</div>` : ''}
     </div>
   `).join('');
 
-  // Where to look — most important ambient info
+  // Secondary stats — compact info bar.
+  // Distance is here only if ETA took its hero slot; otherwise it's already shown.
+  const secondary = [];
+  if (f.etaMinutes > 0) {
+    secondary.push({ label: 'DISTANCE', value: formatDist(f.distanceKm) + ' from you' });
+  }
+  secondary.push({ label: 'STATUS', value: f.status || '—' });
+  if (f.lat && f.lon) {
+    secondary.push({
+      label: 'POSITION',
+      value: `${Math.abs(f.lat).toFixed(2)}°${f.lat >= 0 ? 'N' : 'S'} ${Math.abs(f.lon).toFixed(2)}°${f.lon >= 0 ? 'E' : 'W'}`,
+    });
+  }
+  document.getElementById('lock-secondary').innerHTML = secondary.map(s => `
+    <div class="lock-secondary-item">
+      <span class="lock-secondary-label">${esc(s.label)}</span>
+      <span class="lock-secondary-value">${esc(s.value)}</span>
+    </div>
+  `).join('');
+
+  // Where to look — biggest text in the whole view (the actionable bit)
   document.getElementById('lock-look-text').textContent =
     humanDirection(f.bearing, f.altitudeFt);
 }
