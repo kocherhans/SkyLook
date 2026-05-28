@@ -181,6 +181,43 @@
   .idle-title { font-size: clamp(20px, 2.2vw, 30px); font-weight: 200; letter-spacing: 2px; color: rgba(255,255,255,.55); margin-bottom: 10px; }
   .idle-sub { font-size: clamp(11px, 1vw, 13px); color: rgba(255,255,255,.3); text-align: center; line-height: 1.6; }
 
+  /* ── Overhead banner ─────────────────────────────────────────── */
+  #overhead-banner {
+    position: fixed; top: clamp(8px, 1.5vh, 18px); left: 50%;
+    transform: translateX(-50%);
+    background: rgba(91,179,255,0.18);
+    border: 1px solid rgba(91,179,255,0.45);
+    border-radius: 14px;
+    padding: 8px 16px;
+    display: none; align-items: center; gap: 12px;
+    z-index: 90;
+    backdrop-filter: blur(6px);
+    animation: pulse 2.4s ease-in-out infinite;
+    max-width: 70vw;
+  }
+  #overhead-banner.visible { display: flex; }
+  #overhead-banner .icon { font-size: 20px; color: #5BB3FF; }
+  #overhead-banner .label {
+    font-size: 9px; font-weight: 800; letter-spacing: 1.2px;
+    color: #5BB3FF; line-height: 1;
+  }
+  #overhead-banner .name {
+    font-size: clamp(13px, 1.3vw, 16px); font-weight: 700; color: #fff;
+    margin-top: 2px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; max-width: 50vw;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 18px rgba(91,179,255,0.30); }
+    50%      { box-shadow: 0 0 36px rgba(91,179,255,0.55); }
+  }
+
+  /* ── Lock indicator on detail panel ──────────────────────────── */
+  .lock-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    color: #5BB3FF; background: rgba(91,179,255,0.15);
+    padding: 3px 7px; border-radius: 5px; margin-left: 8px; vertical-align: middle;
+  }
+
   /* ── Error toast (visible if cast message parsing fails) ─────── */
   #err {
     position: fixed; bottom: 8px; right: 12px;
@@ -235,6 +272,14 @@
   </div>
 </div>
 
+<div id="overhead-banner">
+  <span class="icon">✈</span>
+  <div>
+    <div class="label">OVERHEAD NOW</div>
+    <div class="name" id="overhead-name">—</div>
+  </div>
+</div>
+
 <div id="err"></div>
 
 <script>
@@ -244,8 +289,20 @@ const DEFAULT_LON = -0.1278;
 const RADIUS_NM   = 30;
 const POLL_MS     = 30_000;
 
+// URL params: ?lat=X&lon=Y&north=180&lock=ABC123
+// `north` = bearing (deg) the display is facing — rotates the compass so
+// what you see straight ahead is at the top. 0 = N, 90 = E, 180 = S, 270 = W.
+const urlParams = new URLSearchParams(window.location.search);
+const NORTH_OFFSET = (parseFloat(urlParams.get('north')) || 0) % 360;
+const URL_LOCK     = urlParams.get('lock');   // optional callsign or hex id
+
+// Apply north offset to a bearing — the result is what appears on screen
+function applyNorth(bearing) {
+  return ((bearing - NORTH_OFFSET) % 360 + 360) % 360;
+}
+
 // ── State ────────────────────────────────────────────────────────
-let state = { flights: [], trackedIds: [], focusedFlightId: null, unitSystem: 'METRIC', lastUpdated: null };
+let state = { flights: [], trackedIds: [], focusedFlightId: null, lockedFlightId: URL_LOCK, unitSystem: 'METRIC', lastUpdated: null };
 
 function updateState(s) {
   // Merge so partial updates don't wipe other fields
@@ -343,6 +400,7 @@ function parseAircraft(s, userLat, userLon) {
   const airline    = AIRLINES[prefix] || prefix;
   const iata       = IATA_CODES[prefix] || '';
   const speedMph   = Math.round((s.gs || 0) * 1.15078);
+  const track      = typeof s.track === 'number' ? s.track : 0;
   const bearing    = haversineBearing(userLat, userLon, s.lat, s.lon);
   const distance   = haversineDistance(userLat, userLon, s.lat, s.lon);
   const overheadMin = speedMph > 0
@@ -356,6 +414,7 @@ function parseAircraft(s, userLat, userLon) {
     airlineIataCode: iata,
     model:           s.t || '',
     bearing,
+    track,
     altitudeFt:      altFt,
     speedMph,
     distanceKm:      distance,
@@ -383,6 +442,7 @@ async function pollFlights() {
                       .filter(Boolean)
                       .sort((a, b) => a.distanceKm - b.distanceKm);
     if (!phoneActive && flights.length > 0) {
+      // Preserve lockedFlightId across polls (it may come from URL param)
       updateState({
         flights,
         trackedIds:      [],
@@ -448,6 +508,17 @@ function render() {
   renderFlightLists();
   renderCompass();
   renderDetail();
+  renderOverheadBanner();
+}
+
+function renderOverheadBanner() {
+  const f = findOverheadFlight();
+  const el = document.getElementById('overhead-banner');
+  const name = document.getElementById('overhead-name');
+  if (!f) { el.classList.remove('visible'); return; }
+  const desc = f.model ? `${f.callsign} — ${f.model}` : f.callsign;
+  name.textContent = desc;
+  el.classList.add('visible');
 }
 
 function renderStats() {
@@ -470,7 +541,7 @@ function renderFreshness() {
 function renderFlightLists() {
   const tracked    = state.flights.filter(f =>  state.trackedIds.includes(f.id));
   const nonTracked = state.flights.filter(f => !state.trackedIds.includes(f.id));
-  const focusedId  = state.focusedFlightId;
+  const focusedId  = effectiveFocusedId();
 
   const ts = document.getElementById('tracked-section');
   ts.style.display = tracked.length ? '' : 'none';
@@ -501,10 +572,50 @@ function flightRowHTML(f, focusedId) {
 const canvas = document.getElementById('compass');
 const ctx    = canvas.getContext('2d');
 
+// Plane silhouette — nose-up shape, scaled and rotated to track angle.
+// Pre-defined as a Path2D so the rendering loop just translates + rotates.
+const PLANE_PATH = (() => {
+  const p = new Path2D();
+  p.moveTo(0, -1.0);              // nose
+  p.lineTo(0.08, -0.55);
+  p.lineTo(0.18, -0.35);
+  p.lineTo(1.0,  0.0);            // right wing tip
+  p.lineTo(1.0,  0.12);
+  p.lineTo(0.18, 0.15);
+  p.lineTo(0.13, 0.55);           // fuselage to tail
+  p.lineTo(0.42, 0.68);           // right tailplane tip
+  p.lineTo(0.42, 0.78);
+  p.lineTo(0,    0.62);
+  p.lineTo(-0.42, 0.78);
+  p.lineTo(-0.42, 0.68);
+  p.lineTo(-0.13, 0.55);
+  p.lineTo(-0.18, 0.15);
+  p.lineTo(-1.0,  0.12);
+  p.lineTo(-1.0,  0.0);
+  p.lineTo(-0.18, -0.35);
+  p.lineTo(-0.08, -0.55);
+  p.closePath();
+  return p;
+})();
+
+function drawPlane(ctx, x, y, size, trackDeg, color, alpha, stroke) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(applyNorth(trackDeg) * Math.PI / 180);
+  ctx.scale(size, size);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.fill(PLANE_PATH);
+  if (stroke) {
+    ctx.lineWidth = 0.12;
+    ctx.strokeStyle = stroke;
+    ctx.stroke(PLANE_PATH);
+  }
+  ctx.restore();
+}
+
 function renderCompass() {
   const wrap = document.getElementById('compass-wrap');
-  // The wrap is already square via aspect-ratio. Use its measured size, multiplied
-  // by devicePixelRatio for crisp rendering on hi-DPI displays (Nest Hub is 2x).
   const cssSize = Math.min(wrap.clientWidth, wrap.clientHeight);
   if (cssSize < 10) { requestAnimationFrame(renderCompass); return; }
   const dpr = window.devicePixelRatio || 1;
@@ -514,47 +625,53 @@ function renderCompass() {
   canvas.style.height = cssSize + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+  const isSmall = cssSize < 460;     // Nest Hub ~344px center, small TV ~500px+
   const cx = cssSize / 2, cy = cssSize / 2, R = cssSize / 2 - 6;
 
   ctx.clearRect(0, 0, cssSize, cssSize);
 
-  // Background circle
+  // Background circle — much subtler on small displays
+  const ringA  = isSmall ? 0.015 : 0.03;
+  const strokeA = isSmall ? 0.05  : 0.08;
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,.03)';
+  ctx.fillStyle = `rgba(255,255,255,${ringA})`;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.08)';
+  ctx.strokeStyle = `rgba(255,255,255,${strokeA})`;
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Distance rings
-  [.25, .5, .75].forEach(pct => {
+  // Distance rings — only inner rings on small displays
+  const pcts = isSmall ? [.5] : [.25, .5, .75];
+  pcts.forEach(pct => {
     ctx.beginPath();
     ctx.arc(cx, cy, R * pct, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,.05)';
+    ctx.strokeStyle = `rgba(255,255,255,${isSmall ? .025 : .05})`;
     ctx.lineWidth = 1;
     ctx.stroke();
   });
 
-  // Cardinal labels
+  // Cardinal labels — N is wherever true north sits relative to the user's orientation
   const labels = [['N', 0], ['E', 90], ['S', 180], ['W', 270]];
   ctx.font = `500 ${Math.max(10, cssSize * 0.022)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   labels.forEach(([lbl, deg]) => {
-    const rad = (deg - 90) * Math.PI / 180;
+    const screenDeg = applyNorth(deg);
+    const rad = (screenDeg - 90) * Math.PI / 180;
     const lx  = cx + (R - 14) * Math.cos(rad);
     const ly  = cy + (R - 14) * Math.sin(rad);
-    ctx.fillStyle = lbl === 'N' ? 'rgba(77,166,255,.9)' : 'rgba(255,255,255,.3)';
+    ctx.fillStyle = lbl === 'N'
+      ? 'rgba(77,166,255,' + (isSmall ? 0.7 : 0.9) + ')'
+      : 'rgba(255,255,255,' + (isSmall ? 0.2 : 0.3) + ')';
     ctx.fillText(lbl, lx, ly);
   });
 
-  // Aircraft dots — scale dot size with canvas
-  const baseDot = Math.max(3, cssSize * 0.012);
+  // Plane silhouettes — scale with canvas
+  const planeSize = Math.max(6, cssSize * 0.022);
   const maxDist = Math.max(...state.flights.map(f => f.distanceKm), 1);
 
-  // Render unfocused first, focused last so it sits on top
-  const focusedId = state.focusedFlightId;
+  const focusedId = effectiveFocusedId();
   const renderOrder = state.flights.slice().sort((a, b) => {
     if (a.id === focusedId) return 1;
     if (b.id === focusedId) return -1;
@@ -565,42 +682,58 @@ function renderCompass() {
     const color   = bearingColor(f.bearing);
     const focused = f.id === focusedId;
     const tracked = state.trackedIds.includes(f.id);
-    const rad     = (f.bearing - 90) * Math.PI / 180;
+    const screenBearing = applyNorth(f.bearing);
+    const rad     = (screenBearing - 90) * Math.PI / 180;
     const dist    = (f.distanceKm / maxDist) * R * 0.88;
     const fx      = cx + dist * Math.cos(rad);
     const fy      = cy + dist * Math.sin(rad);
 
-    const dotR = focused ? baseDot * 2.2 : tracked ? baseDot * 1.5 : baseDot;
+    const scale = focused ? planeSize * 1.6 : tracked ? planeSize * 1.25 : planeSize;
+    const alpha = focused ? 1 : tracked ? .95 : .7;
 
     if (focused) {
-      // Outer halo
+      // Halo + ring
       ctx.beginPath();
-      ctx.arc(fx, fy, dotR + 14, 0, Math.PI * 2);
+      ctx.arc(fx, fy, scale + 18, 0, Math.PI * 2);
       ctx.fillStyle = hexA(color, 0.12);
       ctx.fill();
-      // Ring
       ctx.beginPath();
-      ctx.arc(fx, fy, dotR + 5, 0, Math.PI * 2);
+      ctx.arc(fx, fy, scale + 8, 0, Math.PI * 2);
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
 
-    ctx.beginPath();
-    ctx.arc(fx, fy, dotR, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.globalAlpha = focused ? 1 : tracked ? .9 : .65;
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    drawPlane(ctx, fx, fy, scale, f.track || f.bearing, color, alpha, null);
 
     if (focused) {
-      ctx.font = `700 ${Math.max(10, cssSize * 0.022)}px system-ui`;
+      ctx.font = `700 ${Math.max(10, cssSize * 0.024)}px system-ui`;
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(f.callsign, fx, fy - dotR - 8);
+      const lockPrefix = state.lockedFlightId === f.id ? '🔒 ' : '';
+      ctx.fillText(lockPrefix + f.callsign, fx, fy - scale - 12);
     }
   });
+}
+
+// Locked id wins over focused — receiver always shows the locked plane.
+function effectiveFocusedId() {
+  return state.lockedFlightId || state.focusedFlightId;
+}
+
+// Elevation angle from ground (degrees) — used to detect "overhead"
+function elevationDeg(distanceKm, altitudeFt) {
+  if (distanceKm <= 0) return 90;
+  return Math.atan2(altitudeFt * 0.3048, distanceKm * 1000) * 180 / Math.PI;
+}
+
+function findOverheadFlight() {
+  // Closest flight that's directly overhead — high elevation OR very close
+  return state.flights.find(f => {
+    const elev = elevationDeg(f.distanceKm, f.altitudeFt);
+    return f.distanceKm < 1.5 || elev > 50;
+  }) || null;
 }
 
 function hexA(hex, alpha) {
@@ -612,7 +745,8 @@ function hexA(hex, alpha) {
 
 // ── Detail panel ─────────────────────────────────────────────────
 function renderDetail() {
-  const f = state.flights.find(fl => fl.id === state.focusedFlightId);
+  const focusedId = effectiveFocusedId();
+  const f = state.flights.find(fl => fl.id === focusedId);
   const detail = document.getElementById('detail-panel');
   const idle   = document.getElementById('idle-panel');
   if (!f) { detail.style.display = 'none'; idle.style.display = ''; return; }
@@ -644,6 +778,7 @@ function renderDetail() {
 
   const nearestRow = f.overheadMin < 999 ? statRow('Nearest in', f.overheadMin + ' min') : '';
 
+  const isLocked = state.lockedFlightId === f.id;
   detail.innerHTML = `
     <div class="detail-header">
       <div class="airline-logo">${esc(f.airlineIataCode || f.callsign.slice(0,2))}</div>
@@ -651,6 +786,7 @@ function renderDetail() {
         <div>
           <span class="detail-callsign">${esc(f.callsign)}</span>
           ${f.interesting ? '<span class="interesting-badge">★</span>' : ''}
+          ${isLocked ? '<span class="lock-badge">🔒 LOCKED</span>' : ''}
         </div>
         <div class="detail-airline">${esc(f.airline)}</div>
       </div>
