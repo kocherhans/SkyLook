@@ -228,6 +228,122 @@
     padding: 3px 7px; border-radius: 5px; margin-left: 8px; vertical-align: middle;
   }
 
+  /* ── Locked full-screen hero view ────────────────────────────── */
+  #lock-view {
+    position: fixed; inset: 0; z-index: 50;
+    display: none;
+    flex-direction: column;
+    padding: clamp(20px, 3vh, 48px) clamp(24px, 4vw, 64px);
+    background: radial-gradient(ellipse at top, rgba(91,179,255,0.06), transparent 60%), #06090F;
+  }
+  #lock-view.visible { display: flex; }
+
+  .lock-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: clamp(16px, 3vh, 32px);
+  }
+  .lock-logo {
+    width: clamp(56px, 6vw, 84px); aspect-ratio: 1/1; border-radius: 16px;
+    background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;
+    font-size: clamp(20px, 2vw, 28px); font-weight: 800; color: #fff; overflow: hidden;
+  }
+  .lock-logo img { width: 75%; height: 75%; object-fit: contain; }
+  .lock-titles { flex: 1; min-width: 0; }
+  .lock-callsign {
+    font-size: clamp(28px, 4vw, 48px); font-weight: 800;
+    color: #fff; letter-spacing: -1px; line-height: 1;
+  }
+  .lock-airline {
+    font-size: clamp(13px, 1.3vw, 18px); color: rgba(255,255,255,0.6);
+    margin-top: 4px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .lock-pill {
+    font-size: clamp(10px, 1vw, 13px); font-weight: 800; letter-spacing: 1.5px;
+    color: #5BB3FF; background: rgba(91,179,255,0.15);
+    padding: 6px 12px; border-radius: 8px; flex-shrink: 0;
+  }
+
+  /* Route card */
+  .lock-route {
+    display: flex; align-items: center; gap: clamp(16px, 2.5vw, 32px);
+    padding: clamp(16px, 2.5vh, 28px) clamp(20px, 3vw, 32px);
+    background: rgba(255,255,255,0.04);
+    border-radius: 18px;
+    margin-bottom: clamp(16px, 2.5vh, 28px);
+  }
+  .lock-airport { min-width: 0; }
+  .lock-airport.right { text-align: right; }
+  .lock-iata {
+    font-size: clamp(24px, 3.5vw, 44px); font-weight: 800;
+    color: #fff; letter-spacing: -1px; line-height: 1;
+  }
+  .lock-city {
+    font-size: clamp(11px, 1.1vw, 15px); color: rgba(255,255,255,0.55);
+    margin-top: 4px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .lock-route-mid { flex: 1; min-width: 0; }
+  .lock-route-track {
+    position: relative; height: 4px; background: rgba(255,255,255,0.1);
+    border-radius: 2px; overflow: visible;
+  }
+  .lock-route-fill {
+    position: absolute; left: 0; top: 0; height: 100%;
+    background: #5BB3FF; border-radius: 2px;
+  }
+  .lock-route-plane {
+    position: absolute; top: 50%; transform: translate(-50%, -50%) rotate(90deg);
+    font-size: clamp(16px, 1.6vw, 22px); color: #5BB3FF;
+  }
+  .lock-route-meta {
+    display: flex; justify-content: space-between;
+    margin-top: 10px;
+    font-size: clamp(11px, 1.1vw, 13px); color: rgba(255,255,255,0.55);
+  }
+  .lock-route-meta .eta { color: #5BB3FF; font-weight: 700; }
+
+  /* Stats grid */
+  .lock-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(10px, 1.5vw, 16px);
+    margin-bottom: clamp(16px, 2.5vh, 28px);
+  }
+  .lock-stat {
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+    padding: clamp(12px, 2vh, 18px) clamp(14px, 2vw, 20px);
+  }
+  .lock-stat-label {
+    font-size: clamp(9px, 0.9vw, 11px); font-weight: 800; letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.45); margin-bottom: 6px;
+  }
+  .lock-stat-value {
+    font-size: clamp(18px, 2.4vw, 30px); font-weight: 800;
+    color: #fff; letter-spacing: -0.5px; line-height: 1.1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .lock-stat-sub { font-size: clamp(11px, 1.1vw, 14px); color: rgba(255,255,255,0.45); margin-top: 4px; }
+
+  /* Where-to-look hero */
+  .lock-look {
+    margin-top: auto;
+    padding: clamp(14px, 2.5vh, 22px) clamp(20px, 3vw, 32px);
+    background: rgba(91,179,255,0.10);
+    border: 1px solid rgba(91,179,255,0.25);
+    border-radius: 16px;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .lock-look-label {
+    font-size: clamp(10px, 1vw, 13px); font-weight: 800; letter-spacing: 1.8px;
+    color: #5BB3FF; line-height: 1;
+  }
+  .lock-look-text {
+    font-size: clamp(18px, 2.4vw, 32px); font-weight: 700;
+    color: #fff; margin-top: 4px; line-height: 1.1;
+  }
+
   /* ── Error toast (visible if cast message parsing fails) ─────── */
   #err {
     position: fixed; bottom: 8px; right: 12px;
@@ -278,6 +394,49 @@
       <span class="idle-plane">✈</span>
       <div class="idle-title">SkyLook</div>
       <div class="idle-sub">Tap any aircraft on your phone<br>to see it here.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Full-screen "locked" hero view — visible when state.lockedFlightId is set
+     and the locked flight is present in the cast data. -->
+<div id="lock-view">
+  <div class="lock-header">
+    <div class="lock-logo" id="lock-logo"></div>
+    <div class="lock-titles">
+      <div class="lock-callsign" id="lock-callsign">—</div>
+      <div class="lock-airline" id="lock-airline">—</div>
+    </div>
+    <div class="lock-pill">🔒 LOCKED</div>
+  </div>
+
+  <div class="lock-route" id="lock-route">
+    <div class="lock-airport">
+      <div class="lock-iata" id="lock-from-iata">—</div>
+      <div class="lock-city" id="lock-from-city">—</div>
+    </div>
+    <div class="lock-route-mid">
+      <div class="lock-route-track">
+        <div class="lock-route-fill" id="lock-progress-fill" style="width:0%"></div>
+        <div class="lock-route-plane" id="lock-progress-plane" style="left:0%">✈</div>
+      </div>
+      <div class="lock-route-meta">
+        <span id="lock-progress-label">—</span>
+        <span class="eta" id="lock-eta-label">—</span>
+      </div>
+    </div>
+    <div class="lock-airport right">
+      <div class="lock-iata" id="lock-to-iata">—</div>
+      <div class="lock-city" id="lock-to-city">—</div>
+    </div>
+  </div>
+
+  <div class="lock-stats" id="lock-stats"></div>
+
+  <div class="lock-look">
+    <div>
+      <div class="lock-look-label">WHERE TO LOOK</div>
+      <div class="lock-look-text" id="lock-look-text">—</div>
     </div>
   </div>
 </div>
@@ -523,12 +682,99 @@ function formatDist(km) {
 
 // ── Render ───────────────────────────────────────────────────────
 function render() {
-  renderStats();
-  renderFreshness();
-  renderFlightLists();
-  renderCompass();
-  renderDetail();
+  // When locked AND we have data for the locked flight, take over the whole
+  // screen with the hero view. Otherwise fall back to the ambient layout.
+  const lockedFlight = state.lockedFlightId
+    ? state.flights.find(f => f.id === state.lockedFlightId)
+    : null;
+
+  const app = document.getElementById('app');
+  const lockView = document.getElementById('lock-view');
+  if (lockedFlight) {
+    app.style.display = 'none';
+    lockView.classList.add('visible');
+    renderLockView(lockedFlight);
+  } else {
+    app.style.display = '';
+    lockView.classList.remove('visible');
+    renderStats();
+    renderFreshness();
+    renderFlightLists();
+    renderCompass();
+    renderDetail();
+  }
   renderOverheadBanner();
+}
+
+function renderLockView(f) {
+  // Header
+  document.getElementById('lock-logo').innerHTML = airlineLogoHTML(f);
+  document.getElementById('lock-callsign').textContent = f.callsign;
+  const airlineLine = [f.airline, f.model].filter(Boolean).join(' · ');
+  document.getElementById('lock-airline').textContent = airlineLine || '—';
+
+  // Route — only show if we have endpoints
+  const routeEl = document.getElementById('lock-route');
+  if (f.fromCode && f.toCode) {
+    routeEl.style.display = '';
+    document.getElementById('lock-from-iata').textContent = f.fromCode;
+    document.getElementById('lock-from-city').textContent = f.fromCity || '';
+    document.getElementById('lock-to-iata').textContent = f.toCode;
+    document.getElementById('lock-to-city').textContent = f.toCity || '';
+    const pct = Math.round((f.progress || 0) * 100);
+    document.getElementById('lock-progress-fill').style.width = pct + '%';
+    document.getElementById('lock-progress-plane').style.left = pct + '%';
+    document.getElementById('lock-progress-label').textContent =
+      pct > 0 ? `${pct}% complete` : 'Departed';
+    document.getElementById('lock-eta-label').textContent =
+      f.etaMinutes > 0
+        ? `${formatDuration(f.etaMinutes)} to ${f.toCode} · arrives ${arrivalTimeStr(f.etaMinutes)}`
+        : (f.offRadar ? 'OFF RADAR' : '—');
+  } else {
+    routeEl.style.display = 'none';
+  }
+
+  // Stats grid
+  const stats = [
+    { label: 'ALTITUDE',  value: formatAlt(f.altitudeFt) },
+    { label: 'SPEED',     value: formatSpeed(f.speedMph) },
+    { label: 'DISTANCE',  value: formatDist(f.distanceKm), sub: 'from you' },
+    { label: 'STATUS',    value: f.status || '—' },
+    {
+      label: 'POSITION',
+      value: (f.lat && f.lon)
+        ? `${Math.abs(f.lat).toFixed(2)}°${f.lat >= 0 ? 'N' : 'S'}  ${Math.abs(f.lon).toFixed(2)}°${f.lon >= 0 ? 'E' : 'W'}`
+        : '—',
+    },
+    {
+      label: 'TIME TO LANDING',
+      value: f.etaMinutes > 0 ? formatDuration(f.etaMinutes) : '—',
+      sub: f.etaMinutes > 0 ? `arrives ${arrivalTimeStr(f.etaMinutes)}` : null,
+    },
+  ];
+  document.getElementById('lock-stats').innerHTML = stats.map(s => `
+    <div class="lock-stat">
+      <div class="lock-stat-label">${esc(s.label)}</div>
+      <div class="lock-stat-value">${esc(s.value)}</div>
+      ${s.sub ? `<div class="lock-stat-sub">${esc(s.sub)}</div>` : ''}
+    </div>
+  `).join('');
+
+  // Where to look — most important ambient info
+  document.getElementById('lock-look-text').textContent =
+    humanDirection(f.bearing, f.altitudeFt);
+}
+
+function formatDuration(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}h ${m.toString().padStart(2, '0')}m`;
+}
+
+function arrivalTimeStr(etaMinutes) {
+  const arrival = new Date(Date.now() + etaMinutes * 60000);
+  return arrival.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function renderOverheadBanner() {
