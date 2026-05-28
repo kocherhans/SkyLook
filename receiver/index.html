@@ -640,7 +640,10 @@ function renderCompass() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const isSmall = cssSize < 460;     // Nest Hub ~344px center, small TV ~500px+
-  const cx = cssSize / 2, cy = cssSize / 2, R = cssSize / 2 - 6;
+  // Reserve canvas margin so cardinal labels (esp. N at the top) don't get
+  // clipped by the canvas edge or covered by the overhead banner above.
+  const margin = Math.max(28, cssSize * 0.07);
+  const cx = cssSize / 2, cy = cssSize / 2, R = cssSize / 2 - margin;
 
   ctx.clearRect(0, 0, cssSize, cssSize);
 
@@ -670,11 +673,14 @@ function renderCompass() {
   ctx.font = `500 ${Math.max(10, cssSize * 0.022)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  // Labels sit just outside the ring — clear of the rim, comfortably inside
+  // the canvas thanks to the margin reservation above.
+  const labelDist = R + 14;
   labels.forEach(([lbl, deg]) => {
     const screenDeg = applyNorth(deg);
     const rad = (screenDeg - 90) * Math.PI / 180;
-    const lx  = cx + (R - 14) * Math.cos(rad);
-    const ly  = cy + (R - 14) * Math.sin(rad);
+    const lx  = cx + labelDist * Math.cos(rad);
+    const ly  = cy + labelDist * Math.sin(rad);
     ctx.fillStyle = lbl === 'N'
       ? 'rgba(77,166,255,' + (isSmall ? 0.7 : 0.9) + ')'
       : 'rgba(255,255,255,' + (isSmall ? 0.2 : 0.3) + ')';
