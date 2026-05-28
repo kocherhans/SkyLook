@@ -167,12 +167,142 @@
 </div>
 
 <script>
+// ── Configuration ────────────────────────────────────────────────
+// Default location for standalone mode. Override per-device by loading
+// the URL with ?lat=51.5&lon=-0.1
+const DEFAULT_LAT = 51.5074;
+const DEFAULT_LON = -0.1278;
+const RADIUS_NM   = 30;        // ~55 km
+const POLL_MS     = 30_000;
+
 // ── Cast receiver setup ──────────────────────────────────────────
 const castContext = cast.framework.CastReceiverContext.getInstance();
+let phoneActive = false;
+
 castContext.addCustomMessageListener('urn:x-cast:com.skylook.flights', e => {
-  try { updateState(JSON.parse(e.data)); } catch(_) {}
+  try {
+    updateState(JSON.parse(e.data));
+    phoneActive = true;     // phone is now the source of truth
+  } catch(_) {}
 });
+
+castContext.addEventListener(
+  cast.framework.system.EventType.SENDER_DISCONNECTED,
+  () => { phoneActive = false; }
+);
+
 castContext.start({ disableIdleTimeout: true });
+
+// ── Standalone polling (used when no phone is casting) ───────────
+const AIRLINES = {
+  AAL:'American Airlines', AFR:'Air France', AIC:'Air India', ANZ:'Air New Zealand',
+  AUA:'Austrian Airlines', BAW:'British Airways', CAL:'China Airlines', CCA:'Air China',
+  CSN:'China Southern',    DAL:'Delta Air Lines', DLH:'Lufthansa', EIN:'Aer Lingus',
+  ETD:'Etihad Airways',    ETH:'Ethiopian Airlines', EVA:'EVA Air', EWG:'Eurowings',
+  EZY:'easyJet',           FDX:'FedEx', FIN:'Finnair', IBE:'Iberia',
+  ICE:'Icelandair',        JAL:'Japan Airlines', JBU:'JetBlue', KAL:'Korean Air',
+  KLM:'KLM',               LOT:'LOT Polish Airlines', MAS:'Malaysia Airlines',
+  QFA:'Qantas',            QTR:'Qatar Airways', RYR:'Ryanair', SAS:'SAS',
+  SIA:'Singapore Airlines', SWA:'Southwest Airlines', SWR:'Swiss', TAP:'TAP Air Portugal',
+  THA:'Thai Airways',      THY:'Turkish Airlines', TOM:'TUI Airways', UAE:'Emirates',
+  UAL:'United Airlines',   UPS:'UPS Airlines', VIR:'Virgin Atlantic', WJA:'WestJet',
+  GEC:'Lufthansa Cargo',
+};
+const IATA_CODES = {
+  AAL:'AA', AFR:'AF', AIC:'AI', ANZ:'NZ', AUA:'OS', BAW:'BA', CAL:'CI', CCA:'CA',
+  CSN:'CZ', DAL:'DL', DLH:'LH', EIN:'EI', ETD:'EY', ETH:'ET', EVA:'BR', EWG:'EW',
+  EZY:'U2', FDX:'FX', FIN:'AY', IBE:'IB', ICE:'FI', JAL:'JL', JBU:'B6', KAL:'KE',
+  KLM:'KL', LOT:'LO', MAS:'MH', QFA:'QF', QTR:'QR', RYR:'FR', SAS:'SK', SIA:'SQ',
+  SWA:'WN', SWR:'LX', TAP:'TP', THA:'TG', THY:'TK', TOM:'BY', UAE:'EK', UAL:'UA',
+  UPS:'5X', VIR:'VS', WJA:'WS', GEC:'LH',
+};
+
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function haversineBearing(lat1, lon1, lat2, lon2) {
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+function parseAircraft(s, userLat, userLon) {
+  if (s.lat == null || s.lon == null) return null;
+  const altFt = typeof s.alt_baro === 'number' ? s.alt_baro : 0;
+  if (altFt < 200) return null;
+
+  const callsign = (s.flight || s.hex || '').trim();
+  if (!callsign) return null;
+
+  const prefix     = callsign.slice(0, 3).toUpperCase();
+  const airline    = AIRLINES[prefix] || prefix;
+  const iata       = IATA_CODES[prefix] || '';
+  const speedMph   = Math.round((s.gs || 0) * 1.15078);
+  const bearing    = haversineBearing(userLat, userLon, s.lat, s.lon);
+  const distance   = haversineDistance(userLat, userLon, s.lat, s.lon);
+  const overheadMin = speedMph > 0
+    ? Math.min(999, Math.round((distance / speedMph) * 60))
+    : 999;
+
+  return {
+    id:              s.hex || callsign,
+    callsign,
+    airline,
+    airlineIataCode: iata,
+    model:           s.t || '',
+    bearing,
+    altitudeFt:      altFt,
+    speedMph,
+    distanceKm:      distance,
+    overheadMin,
+    fromCode:        '', fromCity: '',
+    toCode:          '', toCity:   '',
+    progress:        0,
+    interesting:     altFt > 38000 || speedMph > 560 || !!s.mil,
+    status:          'En route',
+  };
+}
+
+async function pollFlights() {
+  if (phoneActive) return;
+  const params = new URLSearchParams(window.location.search);
+  const lat = parseFloat(params.get('lat')) || DEFAULT_LAT;
+  const lon = parseFloat(params.get('lon')) || DEFAULT_LON;
+
+  try {
+    const res = await fetch(`https://api.airplanes.live/v2/point/${lat}/${lon}/${RADIUS_NM}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const ac = json.ac || json.aircraft || [];
+    const flights = ac.map(a => parseAircraft(a, lat, lon))
+                      .filter(Boolean)
+                      .sort((a, b) => a.distanceKm - b.distanceKm);
+    if (!phoneActive && flights.length > 0) {
+      updateState({
+        flights,
+        trackedIds:      [],
+        focusedFlightId: null,
+        unitSystem:      'METRIC',
+        lastUpdated:     Date.now(),
+      });
+    }
+  } catch (e) {
+    console.warn('SkyLook: poll failed', e);
+  }
+}
+
+pollFlights();
+setInterval(pollFlights, POLL_MS);
 
 // ── State ────────────────────────────────────────────────────────
 let state = { flights: [], trackedIds: [], focusedFlightId: null, unitSystem: 'METRIC', lastUpdated: null };
